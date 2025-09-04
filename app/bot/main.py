@@ -28,6 +28,10 @@ from .routers import tickets as tickets_router
 from .routers import other as other_router
 from .routers import lookup as lookup_router
 from .routers import referrals as referrals_router
+from .routers import discounts as discounts_router
+from .routers import resellers as resellers_router
+from .routers import payment_gateways as payment_gateways_router
+from .routers import trial_system as trial_system_router
 
 
 router = Router()
@@ -111,6 +115,10 @@ async def main() -> None:
     dp.include_router(other_router.router)
     dp.include_router(lookup_router.router)
     dp.include_router(referrals_router.router)
+    dp.include_router(discounts_router.router)
+    dp.include_router(resellers_router.router)
+    dp.include_router(payment_gateways_router.router)
+    dp.include_router(trial_system_router.router)
 
     bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
     await bot.delete_webhook(drop_pending_updates=True)

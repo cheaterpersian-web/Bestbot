@@ -12,6 +12,7 @@ from .tutorials import Tutorial
 from .content import ContentItem
 from .admin import AdminUser, BotSettings, Gift, ResellerRequest, Reseller, Button
 from .analytics import UserActivity, DailyStats, ServiceUsage
+from .trial import TrialRequest, TrialConfig
 
 __all__ = [
     "Base",
@@ -38,4 +39,6 @@ __all__ = [
     "UserActivity",
     "DailyStats",
     "ServiceUsage",
+    "TrialRequest",
+    "TrialConfig",
 ]
