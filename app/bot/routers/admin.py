@@ -10,7 +10,7 @@ from models.orders import PurchaseIntent
 from models.catalog import Plan, Server
 from services.purchases import create_service_after_payment
 from services.qrcode_gen import generate_qr_with_template
-from bot.inline import admin_review_tx_kb
+from bot.inline import admin_review_tx_kb, admin_manage_servers_kb, admin_manage_categories_kb, admin_manage_plans_kb
 from datetime import datetime
 from bot.inline import admin_approve_add_service_kb
 
@@ -51,12 +51,36 @@ async def admin_entry(message: Message):
     await message.answer("پنل مدیریت:", reply_markup=admin_kb())
 
 
-@router.message(lambda m: m.text in {"داشبورد", "مدیریت سرورها", "مدیریت دسته‌ها", "مدیریت پلن‌ها", "پیام همگانی"})
+@router.message(lambda m: m.text in {"داشبورد", "پیام همگانی"})
 async def admin_placeholders(message: Message):
     if not await _is_admin(message.from_user.id):
         await message.answer("شما دسترسی ادمین ندارید.")
         return
     await message.answer("این بخش به‌زودی تکمیل می‌شود.")
+
+
+@router.message(F.text == "مدیریت سرورها")
+async def admin_manage_servers(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("شما دسترسی ادمین ندارید.")
+        return
+    await message.answer("مدیریت سرورها:", reply_markup=admin_manage_servers_kb())
+
+
+@router.message(F.text == "مدیریت دسته‌ها")
+async def admin_manage_categories(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("شما دسترسی ادمین ندارید.")
+        return
+    await message.answer("مدیریت دسته‌ها:", reply_markup=admin_manage_categories_kb())
+
+
+@router.message(F.text == "مدیریت پلن‌ها")
+async def admin_manage_plans(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("شما دسترسی ادمین ندارید.")
+        return
+    await message.answer("مدیریت پلن‌ها:", reply_markup=admin_manage_plans_kb())
 
 
 @router.message(F.text == "بررسی رسیدها")

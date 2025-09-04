@@ -64,3 +64,30 @@ def admin_approve_add_service_kb(svc_id: int, tg_user_id: int) -> InlineKeyboard
         ]
     )
 
+
+def admin_manage_servers_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="افزودن سرور", callback_data="admin:add_server")],
+            [InlineKeyboardButton(text="لیست سرورها", callback_data="admin:list_servers")],
+        ]
+    )
+
+
+def admin_manage_categories_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="افزودن دسته", callback_data="admin:add_category")],
+            [InlineKeyboardButton(text="لیست دسته‌ها", callback_data="admin:list_categories")],
+        ]
+    )
+
+
+def admin_manage_plans_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="افزودن پلن", callback_data="admin:add_plan")],
+            [InlineKeyboardButton(text="لیست پلن‌ها", callback_data="admin:list_plans")],
+        ]
+    )
+
