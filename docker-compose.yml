@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  db:
+    image: mysql:8.3
+    container_name: vpn_bot_mysql
+    environment:
+      MYSQL_DATABASE: vpn_bot
+      MYSQL_USER: vpn_user
+      MYSQL_PASSWORD: vpn_pass
+      MYSQL_ROOT_PASSWORD: root
+    command: ["--default-authentication-plugin=mysql_native_password", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: vpn_bot_api
+    env_file:
+      - ./.env
+    environment:
+      - DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot?charset=utf8mb4
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+
+  bot:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: vpn_bot_worker
+    env_file:
+      - ./.env
+    environment:
+      - DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot?charset=utf8mb4
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m bot.main
+
+volumes:
+  db_data:
+
