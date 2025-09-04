@@ -52,9 +52,7 @@ async def start_handler(message: Message):
 
 
 @router.message(F.text.in_({
-    "خرید جدید",
     "کانفیگ‌های من",
-    "کیف پول / پرداخت‌ها",
     "حساب کاربری",
     "دعوت دوستان",
     "تیکت‌ها",
