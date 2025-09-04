@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # Telegram
     bot_token: str = "your_telegram_bot_token_here"
     admin_ids: List[int] = []
+    bot_username: str = ""
 
     @field_validator("admin_ids", mode="before")
     @classmethod
@@ -61,6 +62,13 @@ class Settings(BaseSettings):
 
     # Panels
     default_panel_mode: str = "mock"  # mock | xui | 3xui | hiddify
+
+    # Referrals
+    referral_percent: int = 10
+    referral_fixed: int = 0
+
+    # Misc
+    status_url: str = ""
 
 
 @lru_cache

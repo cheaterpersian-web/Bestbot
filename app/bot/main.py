@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher, F, Router
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import Message
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from core.config import settings
 from core.db import init_db_schema, get_db_session
@@ -18,6 +19,12 @@ from .routers import buy as buy_router
 from .middlewares.block import BlockMiddleware
 from .routers import admin as admin_router
 from .routers import util as util_router
+from .middlewares.last_seen import LastSeenMiddleware
+from .routers import configs as configs_router
+from .routers import account as account_router
+from .routers import admin_manage as admin_manage_router
+from .routers import tutorials as tutorials_router
+from .routers import tickets as tickets_router
 
 
 router = Router()
@@ -30,6 +37,12 @@ async def start_handler(message: Message):
         from sqlalchemy import select
         result = await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == message.from_user.id))
         user = result.scalar_one_or_none()
+        payload = ""
+        try:
+            if message.text and " " in message.text:
+                payload = message.text.split(" ", 1)[1].strip()
+        except Exception:
+            payload = ""
         if user is None:
             user = TelegramUser(
                 telegram_user_id=message.from_user.id,
@@ -37,7 +50,22 @@ async def start_handler(message: Message):
                 first_name=message.from_user.first_name,
                 last_name=message.from_user.last_name,
                 is_admin=message.from_user.id in set(settings.admin_ids),
+                referral_code=str(message.from_user.id),
             )
+            # handle referral deep-link
+            if payload:
+                ref_id = None
+                if payload.isdigit():
+                    ref_id = int(payload)
+                elif payload.lower().startswith("ref_") and payload[4:].isdigit():
+                    ref_id = int(payload[4:])
+                elif payload.lower().startswith("u") and payload[1:].isdigit():
+                    ref_id = int(payload[1:])
+                if ref_id and ref_id != message.from_user.id:
+                    # find referrer by telegram_user_id or internal id match
+                    ref_user = (await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == ref_id))).scalar_one_or_none()
+                    if ref_user:
+                        user.referred_by_user_id = ref_user.id
             session.add(user)
         else:
             user.username = message.from_user.username
@@ -52,11 +80,7 @@ async def start_handler(message: Message):
 
 
 @router.message(F.text.in_({
-    "کانفیگ‌های من",
-    "حساب کاربری",
     "دعوت دوستان",
-    "تیکت‌ها",
-    "آموزش اتصال",
     "استعلام کانفیگ",
     "سایر امکانات",
 }))
@@ -71,14 +95,20 @@ async def main() -> None:
 
     await init_db_schema()
 
-    dp = Dispatcher()
+    dp = Dispatcher(storage=MemoryStorage())
     dp.message.middleware(BlockMiddleware())
+    dp.message.middleware(LastSeenMiddleware())
     dp.include_router(router)
     dp.include_router(user_main.router)
     dp.include_router(wallet_router.router)
     dp.include_router(buy_router.router)
     dp.include_router(util_router.router)
     dp.include_router(admin_router.router)
+    dp.include_router(configs_router.router)
+    dp.include_router(account_router.router)
+    dp.include_router(admin_manage_router.router)
+    dp.include_router(tutorials_router.router)
+    dp.include_router(tickets_router.router)
 
     bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
     await bot.delete_webhook(drop_pending_updates=True)
