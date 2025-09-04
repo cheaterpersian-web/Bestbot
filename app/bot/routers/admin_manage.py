@@ -501,6 +501,10 @@ def plan_actions_kb(plan_id: int):
             [InlineKeyboardButton(text="تعیین حجم (گیگ)", callback_data=f"adm:plan:settraffic:{plan_id}")],
             [InlineKeyboardButton(text="تغییر دسته", callback_data=f"adm:plan:setcategory:{plan_id}")],
             [InlineKeyboardButton(text="تغییر سرور", callback_data=f"adm:plan:setserver:{plan_id}")],
+            [InlineKeyboardButton(text="هاست", callback_data=f"adm:plan:sethost:{plan_id}"), InlineKeyboardButton(text="پورت", callback_data=f"adm:plan:setport:{plan_id}")],
+            [InlineKeyboardButton(text="پروتکل", callback_data=f"adm:plan:setprotocol:{plan_id}"), InlineKeyboardButton(text="شبکه", callback_data=f"adm:plan:setnetwork:{plan_id}")],
+            [InlineKeyboardButton(text="امنیت", callback_data=f"adm:plan:setsecurity:{plan_id}"), InlineKeyboardButton(text="HostHeader", callback_data=f"adm:plan:sethosthdr:{plan_id}")],
+            [InlineKeyboardButton(text="Path", callback_data=f"adm:plan:setpath:{plan_id}"), InlineKeyboardButton(text="InboundId", callback_data=f"adm:plan:setinbound:{plan_id}")],
             [InlineKeyboardButton(text="حذف", callback_data=f"adm:plan:delete:{plan_id}")],
         ]
     )
@@ -568,7 +572,7 @@ async def cb_plan_actions(callback: CallbackQuery, state: FSMContext):
             if action == "toggle":
                 p.is_active = not p.is_active
                 await callback.message.answer(f"وضعیت پلن #{plan_id} → {'فعال' if p.is_active else 'غیرفعال'}")
-            elif action in {"settitle", "setprice", "setduration", "settraffic", "setcategory", "setserver"}:
+            elif action in {"settitle", "setprice", "setduration", "settraffic", "setcategory", "setserver", "sethost", "setport", "setprotocol", "setnetwork", "setsecurity", "sethosthdr", "setpath", "setinbound"}:
                 await state.update_data(edit_plan_action=action, plan_id=plan_id)
                 prompts = {
                     "settitle": "عنوان جدید را ارسال کنید:",
@@ -577,6 +581,14 @@ async def cb_plan_actions(callback: CallbackQuery, state: FSMContext):
                     "settraffic": "حجم (گیگ) را وارد کنید یا 0 برای حذف:",
                     "setcategory": "ID دسته جدید را وارد کنید:",
                     "setserver": "ID سرور جدید را وارد کنید:",
+                    "sethost": "Host (دامین یا IP) را وارد کنید:",
+                    "setport": "Port را وارد کنید:",
+                    "setprotocol": "Protocol (مثلاً vless) را وارد کنید:",
+                    "setnetwork": "Network (tcp|ws|grpc) را وارد کنید:",
+                    "setsecurity": "Security (none|tls|reality) را وارد کنید:",
+                    "sethosthdr": "HostHeader را وارد کنید (اختیاری):",
+                    "setpath": "Path را وارد کنید (با /):",
+                    "setinbound": "Inbound ID را وارد کنید (اختیاری):",
                 }
                 await callback.message.answer(prompts[action])
                 await state.set_state(EditPlanInlineStates.waiting_field_value)
@@ -644,6 +656,40 @@ async def edit_plan_value(message: Message, state: FSMContext):
                 return
             p.server_id = srv_id
             await message.answer("سرور پلن تغییر کرد.")
+        elif action == "sethost":
+            p.server_host = val
+            await message.answer("Host تنظیم شد.")
+        elif action == "setport":
+            try:
+                port = int(val)
+            except Exception:
+                await message.answer("عدد نامعتبر.")
+                return
+            p.server_port = port
+            await message.answer("Port تنظیم شد.")
+        elif action == "setprotocol":
+            p.protocol = val.lower()
+            await message.answer("Protocol تنظیم شد.")
+        elif action == "setnetwork":
+            p.network = val.lower()
+            await message.answer("Network تنظیم شد.")
+        elif action == "setsecurity":
+            p.security = val.lower()
+            await message.answer("Security تنظیم شد.")
+        elif action == "sethosthdr":
+            p.host_header = (val if val else None)
+            await message.answer("HostHeader تنظیم شد.")
+        elif action == "setpath":
+            p.path = (val if val else None)
+            await message.answer("Path تنظیم شد.")
+        elif action == "setinbound":
+            try:
+                inbound = int(val)
+            except Exception:
+                await message.answer("عدد نامعتبر.")
+                return
+            p.inbound_id = inbound
+            await message.answer("Inbound ID تنظیم شد.")
     await state.clear()
 
 

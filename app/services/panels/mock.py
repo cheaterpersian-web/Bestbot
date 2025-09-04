@@ -6,8 +6,16 @@ from .base import PanelClient, CreateServiceRequest, CreateServiceResult
 class MockPanelClient(PanelClient):
     async def create_service(self, request: CreateServiceRequest) -> CreateServiceResult:
         uid = str(uuid_lib.uuid4())
-        sub = f"https://example.com/sub/{uid}?remark={request.remark}"
-        return CreateServiceResult(uuid=uid, subscription_url=sub)
+        host = request.server_host or "example.com"
+        port = request.server_port or 443
+        protocol = request.protocol or "vless"
+        network = request.network or "tcp"
+        security = request.security or "none"
+        host_header = request.host_header or "exo.ir"
+        path = request.path or "/"
+        # Build a vless-like link for testing
+        link = f"{protocol}://{uid}@{host}:{port}?type={network}&path={path}&host={host_header}&headerType=http&security={security}#{request.remark}"
+        return CreateServiceResult(uuid=uid, subscription_url=link)
 
     async def renew_service(self, uuid: str, add_days: int) -> None:
         return None

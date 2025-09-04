@@ -16,6 +16,14 @@ class CreateServiceRequest:
     remark: str
     duration_days: Optional[int]
     traffic_gb: Optional[int]
+    inbound_id: Optional[int]
+    server_host: Optional[str]
+    server_port: Optional[int]
+    protocol: str = "vless"
+    network: str = "tcp"
+    security: str = "none"
+    host_header: Optional[str] = None
+    path: Optional[str] = None
 
 
 @dataclass

@@ -35,4 +35,13 @@ class Plan(Base):
     duration_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     traffic_gb: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # panel/inbound/link meta
+    inbound_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    server_host: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    server_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    protocol: Mapped[str] = mapped_column(String(16), default="vless")
+    network: Mapped[str] = mapped_column(String(16), default="tcp")
+    security: Mapped[str] = mapped_column(String(16), default="none")
+    host_header: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    path: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 

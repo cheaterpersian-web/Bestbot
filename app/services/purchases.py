@@ -21,6 +21,14 @@ async def create_service_after_payment(session: AsyncSession, user: TelegramUser
             remark=remark,
             duration_days=plan.duration_days,
             traffic_gb=plan.traffic_gb,
+            inbound_id=plan.inbound_id,
+            server_host=plan.server_host,
+            server_port=plan.server_port,
+            protocol=plan.protocol,
+            network=plan.network,
+            security=plan.security,
+            host_header=plan.host_header,
+            path=plan.path,
         )
     )
 
