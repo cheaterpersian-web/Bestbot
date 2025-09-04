@@ -4,6 +4,7 @@ aiogram==3.4.1
 SQLAlchemy==2.0.29
 asyncpg==0.29.0
 aiomysql==0.2.0
+PyMySQL==1.1.1
 alembic==1.13.1
 pydantic==2.7.1
 pydantic-settings==2.3.0
