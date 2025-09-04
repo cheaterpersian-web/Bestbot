@@ -14,6 +14,9 @@ class Server(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     capacity_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # optional capacity tracking
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    auth_mode: Mapped[str] = mapped_column(String(16), default="apikey")  # apikey | password
+    auth_username: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    auth_password: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
 
 class Category(Base):

@@ -30,6 +30,9 @@ class AddServerStates(StatesGroup):
     waiting_base_url = State()
     waiting_panel_type = State()
     waiting_api_key = State()
+    waiting_auth_mode = State()
+    waiting_username = State()
+    waiting_password = State()
 
 
 @router.message(Command("add_server"))
@@ -80,6 +83,7 @@ async def add_server_panel_type(message: Message, state: FSMContext):
     if panel_type not in allowed:
         await message.answer("نوع نامعتبر است. یکی از mock/xui/3xui/hiddify/sanaei")
         return
+    await state.update_data(panel_type=panel_type)
     # If panel does not require api key (e.g., sanaei), finish here
     if panel_type == "sanaei":
         async with get_db_session() as session:
@@ -94,10 +98,51 @@ async def add_server_panel_type(message: Message, state: FSMContext):
         await state.clear()
         await message.answer("سرور ثبت شد (بدون نیاز به API Key).")
         return
-    # Otherwise, ask for API key
-    await state.update_data(panel_type=panel_type)
-    await message.answer("API Key را وارد کنید")
-    await state.set_state(AddServerStates.waiting_api_key)
+    # Otherwise, ask for auth mode
+    await message.answer("روش احراز هویت را انتخاب کنید: apikey یا password")
+    await state.set_state(AddServerStates.waiting_auth_mode)
+
+
+@router.message(AddServerStates.waiting_auth_mode)
+async def add_server_auth_mode(message: Message, state: FSMContext):
+    mode = message.text.strip().lower()
+    if mode not in {"apikey", "password"}:
+        await message.answer("گزینه نامعتبر. یکی از apikey یا password")
+        return
+    await state.update_data(auth_mode=mode)
+    if mode == "apikey":
+        await message.answer("API Key را وارد کنید")
+        await state.set_state(AddServerStates.waiting_api_key)
+    else:
+        await message.answer("نام کاربری پنل را وارد کنید")
+        await state.set_state(AddServerStates.waiting_username)
+
+
+@router.message(AddServerStates.waiting_username)
+async def add_server_username(message: Message, state: FSMContext):
+    await state.update_data(auth_username=message.text.strip())
+    await message.answer("رمز عبور پنل را وارد کنید")
+    await state.set_state(AddServerStates.waiting_password)
+
+
+@router.message(AddServerStates.waiting_password)
+async def add_server_password(message: Message, state: FSMContext):
+    await state.update_data(auth_password=message.text.strip())
+    data = await state.get_data()
+    async with get_db_session() as session:
+        s = Server(
+            name=data["name"],
+            api_base_url=data["base_url"],
+            api_key="",
+            panel_type=data["panel_type"],
+            is_active=True,
+            auth_mode="password",
+            auth_username=data.get("auth_username"),
+            auth_password=data.get("auth_password"),
+        )
+        session.add(s)
+    await state.clear()
+    await message.answer("سرور با احراز هویت پسوردی ثبت شد.")
 
 
 @router.message(Command("list_servers"))
