@@ -2,11 +2,12 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 
 from core.config import settings
 from core.db import get_db_session
 from models.catalog import Server, Category, Plan
+from bot.inline import admin_manage_servers_kb
 from models.user import TelegramUser
 
 
@@ -94,6 +95,190 @@ async def list_servers(message: Message):
         return
     out = [f"#{s.id} - {s.name} ({s.panel_type})" for s in servers]
     await message.answer("\n".join(out))
+
+
+def servers_inline_kb(servers: list[Server]):
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    rows = []
+    for s in servers:
+        rows.append([InlineKeyboardButton(text=f"#{s.id} {s.name}", callback_data=f"adm:server:{s.id}")])
+    rows.append([InlineKeyboardButton(text="افزودن سرور جدید", callback_data="adm:server:add")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.callback_query(F.data == "admin:add_server")
+@router.callback_query(F.data == "adm:server:add")
+async def cb_add_server(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await callback.message.answer("نام سرور را وارد کنید")
+    await state.set_state(AddServerStates.waiting_name)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:list_servers")
+async def cb_list_servers(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        servers = (await session.execute(select(Server).order_by(Server.sort_order, Server.id))).scalars().all()
+    if not servers:
+        await callback.message.answer("سروری ثبت نشده است.")
+    else:
+        await callback.message.answer("لیست سرورها:", reply_markup=servers_inline_kb(servers))
+    await callback.answer()
+
+
+class EditServerStates(StatesGroup):
+    waiting_value = State()
+
+
+def server_actions_kb(server_id: int):
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="فعال/غیرفعال", callback_data=f"adm:server:toggle:{server_id}")],
+            [InlineKeyboardButton(text="تغییر نام", callback_data=f"adm:server:setname:{server_id}")],
+            [InlineKeyboardButton(text="تغییر API URL", callback_data=f"adm:server:seturl:{server_id}")],
+            [InlineKeyboardButton(text="تغییر API Key", callback_data=f"adm:server:setkey:{server_id}")],
+            [InlineKeyboardButton(text="تغییر نوع پنل", callback_data=f"adm:server:setpanel:{server_id}")],
+            [InlineKeyboardButton(text="تعیین Capacity", callback_data=f"adm:server:setcap:{server_id}")],
+            [InlineKeyboardButton(text="تغییر sort_order", callback_data=f"adm:server:sort:{server_id}")],
+            [InlineKeyboardButton(text="حذف", callback_data=f"adm:server:delete:{server_id}")],
+        ]
+    )
+
+
+@router.callback_query(F.data.startswith("adm:server:") & ~F.data.startswith("adm:server:add"))
+async def cb_server_item(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    parts = callback.data.split(":")
+    if parts[2] in {"toggle", "setname", "seturl", "setkey", "setpanel", "setcap", "sort", "delete"}:
+        action = parts[2]
+        server_id = int(parts[3])
+        async with get_db_session() as session:
+            from sqlalchemy import select
+            srv = (await session.execute(select(Server).where(Server.id == server_id))).scalar_one_or_none()
+            if not srv:
+                await callback.answer("یافت نشد", show_alert=True)
+                return
+            if action == "toggle":
+                srv.is_active = not srv.is_active
+                await callback.message.answer(f"وضعیت سرور #{server_id} → {'فعال' if srv.is_active else 'غیرفعال'}")
+            elif action == "setname":
+                await state.update_data(edit_action="setname", server_id=server_id)
+                await callback.message.answer("نام جدید را ارسال کنید:")
+                await state.set_state(EditServerStates.waiting_value)
+                await callback.answer()
+                return
+            elif action == "seturl":
+                await state.update_data(edit_action="seturl", server_id=server_id)
+                await callback.message.answer("API URL جدید را ارسال کنید:")
+                await state.set_state(EditServerStates.waiting_value)
+                await callback.answer()
+                return
+            elif action == "setkey":
+                await state.update_data(edit_action="setkey", server_id=server_id)
+                await callback.message.answer("API Key جدید را ارسال کنید:")
+                await state.set_state(EditServerStates.waiting_value)
+                await callback.answer()
+                return
+            elif action == "setpanel":
+                await state.update_data(edit_action="setpanel", server_id=server_id)
+                await callback.message.answer("نوع پنل را وارد کنید (mock/xui/3xui/hiddify):")
+                await state.set_state(EditServerStates.waiting_value)
+                await callback.answer()
+                return
+            elif action == "setcap":
+                await state.update_data(edit_action="setcap", server_id=server_id)
+                await callback.message.answer("ظرفیت (عدد) را وارد کنید؛ 0 برای حذف محدودیت:")
+                await state.set_state(EditServerStates.waiting_value)
+                await callback.answer()
+                return
+            elif action == "sort":
+                await state.update_data(edit_action="sort", server_id=server_id)
+                await callback.message.answer("مقدار sort_order جدید را ارسال کنید (عدد):")
+                await state.set_state(EditServerStates.waiting_value)
+                await callback.answer()
+                return
+            elif action == "delete":
+                await session.delete(srv)
+                await callback.message.answer(f"سرور #{server_id} حذف شد.")
+        await callback.answer()
+        return
+    # view server
+    server_id = int(parts[-1])
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        srv = (await session.execute(select(Server).where(Server.id == server_id))).scalar_one_or_none()
+    if srv:
+        details = (
+            f"سرور #{srv.id}\n"
+            f"نام: {srv.name}\n"
+            f"panel: {srv.panel_type}\n"
+            f"active: {'بله' if srv.is_active else 'خیر'}\n"
+            f"sort_order: {srv.sort_order}\n"
+            f"capacity: {srv.capacity_limit or '-'}\n"
+            f"api_base_url: {srv.api_base_url}"
+        )
+        await callback.message.answer(details, reply_markup=server_actions_kb(server_id))
+    else:
+        await callback.message.answer(f"مدیریت سرور #{server_id}", reply_markup=server_actions_kb(server_id))
+    await callback.answer()
+
+
+@router.message(EditServerStates.waiting_value)
+async def edit_server_value(message: Message, state: FSMContext):
+    data = await state.get_data()
+    action = data.get("edit_action")
+    server_id = int(data.get("server_id"))
+    val = message.text.strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        srv = (await session.execute(select(Server).where(Server.id == server_id))).scalar_one_or_none()
+        if not srv:
+            await message.answer("سرور یافت نشد.")
+            await state.clear()
+            return
+        if action == "setname":
+            srv.name = val
+            await message.answer("نام به‌روزرسانی شد.")
+        elif action == "seturl":
+            srv.api_base_url = val
+            await message.answer("API URL به‌روزرسانی شد.")
+        elif action == "setkey":
+            srv.api_key = val
+            await message.answer("API Key به‌روزرسانی شد.")
+        elif action == "setpanel":
+            t = val.lower()
+            if t not in {"mock", "xui", "3xui", "hiddify"}:
+                await message.answer("نوع نامعتبر. یکی از mock/xui/3xui/hiddify")
+                return
+            srv.panel_type = t
+            await message.answer("نوع پنل به‌روزرسانی شد.")
+        elif action == "setcap":
+            try:
+                cap = int(val)
+            except Exception:
+                await message.answer("عدد نامعتبر.")
+                return
+            srv.capacity_limit = None if cap == 0 else cap
+            await message.answer("Capacity به‌روزرسانی شد.")
+        elif action == "sort":
+            try:
+                order = int(val)
+            except Exception:
+                await message.answer("عدد نامعتبر.")
+                return
+            srv.sort_order = order
+            await message.answer("sort_order به‌روزرسانی شد.")
+    await state.clear()
+
 
 
 class AddCategoryStates(StatesGroup):

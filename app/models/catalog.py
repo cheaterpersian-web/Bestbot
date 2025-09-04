@@ -13,6 +13,7 @@ class Server(Base):
     panel_type: Mapped[str] = mapped_column(String(16), default="mock")  # mock | xui | 3xui | hiddify
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     capacity_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # optional capacity tracking
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Category(Base):
