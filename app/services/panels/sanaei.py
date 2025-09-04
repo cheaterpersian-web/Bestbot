@@ -20,15 +20,38 @@ class SanaeiPanelClient(PanelClient):
     async def _login_get_cookie(self, client: httpx.AsyncClient) -> None:
         if self.cfg.auth_mode != "password" or not self.cfg.username or not self.cfg.password:
             return
-        await client.post(f"{self._base()}/login", data={"username": self.cfg.username, "password": self.cfg.password})
+        # Try multiple common login paths
+        login_paths = [
+            "/login",
+            "/xui/login",
+            "/panel/login",
+        ]
+        for lp in login_paths:
+            try:
+                resp = await client.post(f"{self._base()}{lp}", data={"username": self.cfg.username, "password": self.cfg.password})
+                if resp.status_code in (200, 302):
+                    return
+            except Exception:
+                continue
 
     async def _list_inbounds(self, client: httpx.AsyncClient) -> list[dict]:
-        # Official 3x-ui: /xui/inbound/list returns {obj:[...]}
-        r = await client.get(f"{self._base()}/xui/inbound/list")
-        r.raise_for_status()
-        data = r.json()
-        inbounds = data.get("obj") if isinstance(data, dict) else data
-        return inbounds or []
+        # Try multiple endpoints across 3x-ui variants
+        candidates = [
+            "/xui/inbound/list",
+            "/panel/inbound/list",
+            "/panel/api/inbounds",
+        ]
+        for path in candidates:
+            try:
+                r = await client.get(f"{self._base()}{path}")
+                if r.status_code == 200:
+                    data = r.json()
+                    inbounds = data.get("obj") if isinstance(data, dict) else data
+                    if isinstance(inbounds, list):
+                        return inbounds
+            except Exception:
+                continue
+        return []
 
     async def _add_client(self, client: httpx.AsyncClient, inbound_id: int, user_uuid: str, remark: str, duration_days: Optional[int], traffic_gb: Optional[int]) -> None:
         expiry_ts_ms = 0
@@ -54,7 +77,15 @@ class SanaeiPanelClient(PanelClient):
             "settings": _json.dumps({"clients": [client_obj]}),
             "enable": True,
         }
-        resp = await client.post(f"{self._base()}/xui/inbound/addClient", json=payload_a)
+        endpoints = [
+            "/xui/inbound/addClient",
+            "/panel/inbound/addClient",
+            "/panel/api/inbounds/addClient",
+        ]
+        # Try as stringified settings first
+        ep_iter = iter(endpoints)
+        ep = next(ep_iter)
+        resp = await client.post(f"{self._base()}{ep}", json=payload_a)
         if resp.status_code == 200 and (resp.json().get("success") if resp.headers.get("content-type"," ").startswith("application/json") else True):
             return
         # Pattern B: send as nested object
@@ -63,8 +94,15 @@ class SanaeiPanelClient(PanelClient):
             "settings": {"clients": [client_obj]},
             "enable": True,
         }
-        resp2 = await client.post(f"{self._base()}/xui/inbound/addClient", json=payload_b)
-        resp2.raise_for_status()
+        for ep in endpoints:
+            try:
+                resp2 = await client.post(f"{self._base()}{ep}", json=payload_b)
+                if resp2.status_code == 200:
+                    return
+            except Exception:
+                continue
+        # If nothing worked, raise an error
+        raise httpx.HTTPError("Failed to add client to inbound via known endpoints")
 
     def _build_link_from_inbound(self, user_uuid: str, remark: str, inbound: dict) -> str:
         # host from server base_url
@@ -92,7 +130,7 @@ class SanaeiPanelClient(PanelClient):
         return f"vless://{user_uuid}@{host}:{port}?{query}#{remark}"
 
     async def create_service(self, request: CreateServiceRequest) -> CreateServiceResult:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             await self._login_get_cookie(client)
             inbounds = await self._list_inbounds(client)
             if not inbounds:
