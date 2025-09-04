@@ -25,6 +25,9 @@ from .routers import account as account_router
 from .routers import admin_manage as admin_manage_router
 from .routers import tutorials as tutorials_router
 from .routers import tickets as tickets_router
+from .routers import other as other_router
+from .routers import lookup as lookup_router
+from .routers import referrals as referrals_router
 
 
 router = Router()
@@ -79,11 +82,7 @@ async def start_handler(message: Message):
     await message.answer(text, reply_markup=main_menu_kb())
 
 
-@router.message(F.text.in_({
-    "دعوت دوستان",
-    "استعلام کانفیگ",
-    "سایر امکانات",
-}))
+@router.message(F.text.in_(set()))
 async def placeholder_menu_handler(message: Message):
     await message.answer("این بخش به‌زودی فعال می‌شود.")
 
@@ -109,6 +108,9 @@ async def main() -> None:
     dp.include_router(admin_manage_router.router)
     dp.include_router(tutorials_router.router)
     dp.include_router(tickets_router.router)
+    dp.include_router(other_router.router)
+    dp.include_router(lookup_router.router)
+    dp.include_router(referrals_router.router)
 
     bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
     await bot.delete_webhook(drop_pending_updates=True)

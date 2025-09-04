@@ -12,6 +12,7 @@ from services.purchases import create_service_after_payment
 from services.qrcode_gen import generate_qr_with_template
 from bot.inline import admin_review_tx_kb
 from datetime import datetime
+from bot.inline import admin_approve_add_service_kb
 
 
 router = Router(name="admin")
@@ -191,6 +192,57 @@ async def list_pending_receipts(message: Message):
         )
 
 
+@router.message(Command("reply_ticket"))
+async def admin_reply_ticket(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("شما دسترسی ادمین ندارید.")
+        return
+    # format: /reply_ticket <ticket_id> <text>
+    parts = message.text.strip().split(maxsplit=2)
+    if len(parts) < 3:
+        await message.answer("فرمت: /reply_ticket <ticket_id> <متن>")
+        return
+    ticket_id = int(parts[1])
+    body = parts[2]
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        t = (await session.execute(select(Ticket).where(Ticket.id == ticket_id))).scalar_one_or_none()
+        if not t:
+            await message.answer("تیکت یافت نشد.")
+            return
+        admin_user = (
+            await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == message.from_user.id))
+        ).scalar_one_or_none()
+        session.add(TicketMessage(ticket_id=ticket_id, sender_user_id=admin_user.id if admin_user else 0, body=body, by_admin=True))
+        user = (await session.execute(select(TelegramUser).where(TelegramUser.id == t.user_id))).scalar_one_or_none()
+    if user:
+        await message.bot.send_message(chat_id=user.telegram_user_id, text=f"پاسخ پشتیبانی: {body}")
+    await message.answer("ارسال شد.")
+
+
+@router.message(Command("close_ticket"))
+async def admin_close_ticket(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("شما دسترسی ادمین ندارید.")
+        return
+    parts = message.text.strip().split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer("فرمت: /close_ticket <ticket_id>")
+        return
+    ticket_id = int(parts[1])
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        t = (await session.execute(select(Ticket).where(Ticket.id == ticket_id))).scalar_one_or_none()
+        if not t:
+            await message.answer("تیکت یافت نشد.")
+            return
+        t.status = "closed"
+        user = (await session.execute(select(TelegramUser).where(TelegramUser.id == t.user_id))).scalar_one_or_none()
+    if user:
+        await message.bot.send_message(chat_id=user.telegram_user_id, text=f"تیکت #{ticket_id} بسته شد.")
+    await message.answer("بسته شد.")
+
+
 @router.message(F.text.regexp(r"^/approve_tx\s+\d+$"))
 async def approve_tx(message: Message):
     if not await _is_admin(message.from_user.id):
@@ -271,5 +323,34 @@ async def reject_tx(message: Message):
     if user:
         await message.bot.send_message(chat_id=user.telegram_user_id, text=f"رسید شما رد شد. علت: {reason}")
     await message.answer(f"TX#{tx_id} رد شد.")
+
+
+@router.callback_query(F.data.startswith("admin:approve_addsvc:"))
+async def approve_add_service(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    _, _, svc_id_str, tg_user_id_str = callback.data.split(":")
+    svc_id = int(svc_id_str)
+    tg_user_id = int(tg_user_id_str)
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        svc = (await session.execute(select(Service).where(Service.id == svc_id))).scalar_one_or_none()
+        user = (await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == tg_user_id))).scalar_one_or_none()
+        if not svc or not user:
+            await callback.answer("یافت نشد", show_alert=True)
+            return
+        svc.user_id = user.id
+    await callback.message.answer(f"سرویس #{svc_id} به کاربر {tg_user_id} منتقل شد.")
+    await callback.answer("انجام شد")
+
+
+@router.callback_query(F.data.startswith("admin:reject_addsvc:"))
+async def reject_add_service(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await callback.message.answer("درخواست انتقال رد شد.")
+    await callback.answer("رد شد")
 
 

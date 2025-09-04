@@ -24,4 +24,6 @@ class Transaction(Base):
     receipt_image_file_id: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     approved_by_admin_id: Mapped[Optional[int]] = mapped_column(ForeignKey("telegramuser.id"), nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    bonus_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
+    discount_code: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 

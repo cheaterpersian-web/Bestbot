@@ -15,4 +15,6 @@ class PurchaseIntent(Base):
     amount_due_receipt: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | paid | cancelled
     receipt_transaction_id: Mapped[Optional[int]] = mapped_column(ForeignKey("transaction.id"), nullable=True)
+    discount_code: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    discount_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
 

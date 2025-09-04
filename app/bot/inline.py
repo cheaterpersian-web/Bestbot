@@ -45,3 +45,22 @@ def admin_review_tx_kb(tx_id: int) -> InlineKeyboardMarkup:
         ]
     )
 
+
+def request_add_service_kb(svc_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="درخواست افزودن به حساب", callback_data=f"lookup:reqadd:{svc_id}")]
+        ]
+    )
+
+
+def admin_approve_add_service_kb(svc_id: int, tg_user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="تایید انتقال", callback_data=f"admin:approve_addsvc:{svc_id}:{tg_user_id}"),
+                InlineKeyboardButton(text="رد", callback_data=f"admin:reject_addsvc:{svc_id}:{tg_user_id}"),
+            ]
+        ]
+    )
+
