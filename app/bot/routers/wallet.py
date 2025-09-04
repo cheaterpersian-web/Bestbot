@@ -9,6 +9,7 @@ from core.config import settings
 from core.db import get_db_session
 from models.billing import Transaction
 from models.user import TelegramUser
+from bot.inline import admin_review_tx_kb
 
 
 router = Router(name="wallet")
@@ -60,6 +61,7 @@ async def receive_receipt(message: Message, state: FSMContext):
             receipt_image_file_id=file_id,
         )
         session.add(tx)
+        await session.flush()
         if settings.auto_approve_receipts:
             me.wallet_balance = (me.wallet_balance or 0) + amount
 
@@ -67,6 +69,21 @@ async def receive_receipt(message: Message, state: FSMContext):
         await message.answer(f"شارژ با موفقیت انجام شد. موجودی جدید: {amount:,} تومان افزوده شد.")
     else:
         await message.answer("رسید دریافت شد. پس از بررسی ادمین، نتیجه به شما اعلام می‌شود.")
+        # notify admins
+        for admin_id in settings.admin_ids:
+            try:
+                await message.bot.send_photo(
+                    chat_id=admin_id,
+                    photo=file_id,
+                    caption=f"رسید جدید شارژ کیف پول\nTX#{tx.id} | مبلغ: {amount:,} | کاربر: {me.id}",
+                    reply_markup=admin_review_tx_kb(tx.id),
+                )
+            except Exception:
+                await message.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"رسید جدید شارژ کیف پول\nTX#{tx.id} | مبلغ: {amount:,} | کاربر: {me.id}",
+                    reply_markup=admin_review_tx_kb(tx.id),
+                )
 
     await state.clear()
 

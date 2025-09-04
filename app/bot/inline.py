@@ -34,3 +34,14 @@ def admin_review_kb(tx_id: int) -> InlineKeyboardMarkup:
         ]
     )
 
+
+def admin_review_tx_kb(tx_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="تایید", callback_data=f"admin:approve_tx:{tx_id}"),
+                InlineKeyboardButton(text="رد", callback_data=f"admin:reject_tx:{tx_id}"),
+            ]
+        ]
+    )
+

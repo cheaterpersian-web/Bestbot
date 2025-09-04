@@ -7,12 +7,14 @@ from aiogram.types import Message, CallbackQuery, BufferedInputFile
 
 from bot.inline import categories_kb, plans_kb, pay_options_kb
 from core.db import get_db_session
+from core.config import settings
 from models.catalog import Category, Plan, Server
 from models.user import TelegramUser
 from models.billing import Transaction
 from models.orders import PurchaseIntent
 from services.purchases import create_service_after_payment
 from services.qrcode_gen import generate_qr_with_template
+from bot.inline import admin_review_tx_kb
 
 
 router = Router(name="buy")
@@ -94,7 +96,7 @@ async def show_plan(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("buy:pay_wallet:"))
-async def pay_with_wallet(callback: CallbackQuery):
+async def pay_with_wallet(callback: CallbackQuery, state: FSMContext):
     plan_id = int(callback.data.split(":")[-1])
     async with get_db_session() as session:
         from sqlalchemy import select
@@ -162,9 +164,8 @@ async def pay_with_wallet(callback: CallbackQuery):
         await callback.message.answer(
             f"{paid:,} تومان از کیف پول شما کسر شد. لطفاً رسید کارت‌به‌کارت مبلغ باقی‌مانده ({due:,} تومان) را ارسال کنید."
         )
-        state: FSMContext = callback.bot['fsm'] if 'fsm' in callback.bot else None
-        # use context-based FSM
-        # In aiogram v3 typical FSM is injected via middlewares; here we fallback to message-based prompt
+        await state.update_data(purchase_intent_id=intent.id)
+        await state.set_state(PurchaseStates.waiting_purchase_receipt)
     await callback.answer()
 
 
@@ -206,6 +207,7 @@ async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
             status="pending",
         )
         session.add(intent)
+        await session.flush()
         await state.update_data(purchase_intent_id=intent.id)
 
     await callback.message.answer(
@@ -244,4 +246,19 @@ async def receive_purchase_receipt(message: Message, state: FSMContext):
 
     await state.clear()
     await message.answer("رسید دریافت شد. پس از تایید ادمین، سرویس شما ساخته می‌شود.")
+    # notify admins
+    for admin_id in settings.admin_ids:
+        try:
+            await message.bot.send_photo(
+                chat_id=admin_id,
+                photo=file_id,
+                caption=f"رسید جدید خرید\nTX#{tx.id} | مبلغ: {int(intent.amount_due_receipt):,} | کاربر: {intent.user_id}",
+                reply_markup=admin_review_tx_kb(tx.id),
+            )
+        except Exception:
+            await message.bot.send_message(
+                chat_id=admin_id,
+                text=f"رسید جدید خرید\nTX#{tx.id} | مبلغ: {int(intent.amount_due_receipt):,} | کاربر: {intent.user_id}",
+                reply_markup=admin_review_tx_kb(tx.id),
+            )
 
