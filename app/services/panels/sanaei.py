@@ -53,6 +53,21 @@ class SanaeiPanelClient(PanelClient):
                 continue
         return []
 
+    async def _get_inbound_detail(self, client: httpx.AsyncClient, inbound_id: int) -> dict:
+        candidates = [
+            f"/panel/api/inbound/{inbound_id}",
+            f"/panel/api/inbounds/{inbound_id}",
+        ]
+        for path in candidates:
+            try:
+                r = await client.get(f"{self._base()}{path}")
+                if r.status_code == 200:
+                    data = r.json()
+                    return data.get("obj") if isinstance(data, dict) else data
+            except Exception:
+                continue
+        return {}
+
     async def _add_client(self, client: httpx.AsyncClient, inbound_id: int, user_uuid: str, remark: str, duration_days: Optional[int], traffic_gb: Optional[int]) -> None:
         expiry_ts_ms = 0
         total_gb_bytes = 0
@@ -70,34 +85,26 @@ class SanaeiPanelClient(PanelClient):
             "enable": True,
         }
 
-        # Pattern A: send "settings" as stringified JSON per 3x-ui
+        # Form-encoded per spec
         import json as _json
-        payload_a = {
-            "id": inbound_id,
+        form_data = {
+            "id": str(inbound_id),
+            "inboundId": str(inbound_id),
             "settings": _json.dumps({"clients": [client_obj]}),
-            "enable": True,
+        }
+        headers = {
+            "Accept": "application/json, text/plain, */*",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         }
         endpoints = [
+            "/panel/api/inbounds/addClient",
             "/xui/inbound/addClient",
             "/panel/inbound/addClient",
-            "/panel/api/inbounds/addClient",
         ]
-        # Try as stringified settings first
-        ep_iter = iter(endpoints)
-        ep = next(ep_iter)
-        resp = await client.post(f"{self._base()}{ep}", json=payload_a)
-        if resp.status_code == 200 and (resp.json().get("success") if resp.headers.get("content-type"," ").startswith("application/json") else True):
-            return
-        # Pattern B: send as nested object
-        payload_b = {
-            "id": inbound_id,
-            "settings": {"clients": [client_obj]},
-            "enable": True,
-        }
         for ep in endpoints:
             try:
-                resp2 = await client.post(f"{self._base()}{ep}", json=payload_b)
-                if resp2.status_code == 200:
+                resp = await client.post(f"{self._base()}{ep}", data=form_data, headers=headers)
+                if resp.status_code == 200:
                     return
             except Exception:
                 continue
@@ -151,7 +158,8 @@ class SanaeiPanelClient(PanelClient):
                 duration_days=request.duration_days,
                 traffic_gb=request.traffic_gb,
             )
-            link = self._build_link_from_inbound(user_uuid, request.remark, inbound)
+            inbound_detail = await self._get_inbound_detail(client, inbound.get("id")) if inbound.get("id") is not None else {}
+            link = self._build_link_from_inbound(user_uuid, request.remark, inbound_detail or inbound)
             return CreateServiceResult(uuid=user_uuid, subscription_url=link)
 
     async def renew_service(self, uuid: str, add_days: int) -> None:
