@@ -16,6 +16,8 @@ from .routers import user_main
 from .routers import wallet as wallet_router
 from .routers import buy as buy_router
 from .middlewares.block import BlockMiddleware
+from .routers import admin as admin_router
+from .routers import util as util_router
 
 
 router = Router()
@@ -77,6 +79,8 @@ async def main() -> None:
     dp.include_router(user_main.router)
     dp.include_router(wallet_router.router)
     dp.include_router(buy_router.router)
+    dp.include_router(util_router.router)
+    dp.include_router(admin_router.router)
 
     bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
     await bot.delete_webhook(drop_pending_updates=True)
