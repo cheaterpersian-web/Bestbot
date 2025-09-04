@@ -9,6 +9,9 @@ class PanelServerConfig:
     base_url: str
     api_key: str
     panel_type: str  # mock | xui | 3xui | hiddify
+    auth_mode: str = "apikey"  # apikey | password
+    username: Optional[str] = None
+    password: Optional[str] = None
 
 
 @dataclass

@@ -11,11 +11,19 @@ from models.service import Service
 from models.user import TelegramUser
 from models.referrals import ReferralEvent
 from services.panels.base import CreateServiceRequest
-from services.panels.factory import get_panel_client
+from services.panels.factory import get_panel_client, get_panel_client_for_server
 
 
 async def create_service_after_payment(session: AsyncSession, user: TelegramUser, plan: Plan, server: Server, remark: str) -> Service:
-    client = get_panel_client(server.panel_type)
+    # Prefer real panel client using server auth if provided
+    client = get_panel_client_for_server(
+        base_url=server.api_base_url,
+        panel_type=server.panel_type,
+        auth_mode=getattr(server, "auth_mode", "apikey"),
+        api_key=server.api_key or "",
+        username=getattr(server, "auth_username", None),
+        password=getattr(server, "auth_password", None),
+    )
     result = await client.create_service(
         CreateServiceRequest(
             remark=remark,
