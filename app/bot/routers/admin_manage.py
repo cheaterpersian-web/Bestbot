@@ -84,22 +84,8 @@ async def add_server_panel_type(message: Message, state: FSMContext):
         await message.answer("نوع نامعتبر است. یکی از mock/xui/3xui/hiddify/sanaei")
         return
     await state.update_data(panel_type=panel_type)
-    # If panel does not require api key (e.g., sanaei), finish here
-    if panel_type == "sanaei":
-        async with get_db_session() as session:
-            s = Server(
-                name=data["name"],
-                api_base_url=data["base_url"],
-                api_key="",
-                panel_type=panel_type,
-                is_active=True,
-            )
-            session.add(s)
-        await state.clear()
-        await message.answer("سرور ثبت شد (بدون نیاز به API Key).")
-        return
-    # Otherwise, ask for auth mode
-    await message.answer("روش احراز هویت را انتخاب کنید: apikey یا password")
+    # Ask for auth mode for all panel types (3xui/sanaei معمولاً password)
+    await message.answer("روش احراز هویت را انتخاب کنید: apikey یا password (برای 3xui/sanaei: password توصیه می‌شود)")
     await state.set_state(AddServerStates.waiting_auth_mode)
 
 
