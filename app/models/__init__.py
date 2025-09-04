@@ -16,6 +16,8 @@ from .trial import TrialRequest, TrialConfig
 from .smart_discounts import SmartDiscount, DiscountUsage, CashbackRule, CashbackTransaction, UserDiscountProfile
 from .crm import UserProfile, UserActivity, PersonalizedOffer, Campaign, CampaignRecipient, UserInsight, CustomerJourney
 from .notifications import Notification, NotificationTemplate, NotificationSettings, NotificationLog
+from .advanced_reseller import AdvancedReseller, SubReseller, ResellerCommission, ResellerTarget, ResellerActivity, ResellerPayment, ResellerLevelRule
+from .anti_fraud import FraudRule, FraudDetection, UserFraudProfile, FraudPattern, FraudAlert, FraudWhitelist, FraudBlacklist
 
 __all__ = [
     "Base",
@@ -60,4 +62,18 @@ __all__ = [
     "NotificationTemplate",
     "NotificationSettings",
     "NotificationLog",
+    "AdvancedReseller",
+    "SubReseller",
+    "ResellerCommission",
+    "ResellerTarget",
+    "ResellerActivity",
+    "ResellerPayment",
+    "ResellerLevelRule",
+    "FraudRule",
+    "FraudDetection",
+    "UserFraudProfile",
+    "FraudPattern",
+    "FraudAlert",
+    "FraudWhitelist",
+    "FraudBlacklist",
 ]
