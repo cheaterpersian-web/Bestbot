@@ -66,7 +66,12 @@ async def admin_review_menu(message: Message):
     async with get_db_session() as session:
         from sqlalchemy import select
         txs = (
-            await session.execute(select(Transaction).where(Transaction.status == "pending", Transaction.type.in_(["purchase_receipt", "wallet_topup"]))
+            await session.execute(
+                select(Transaction).where(
+                    Transaction.status == "pending",
+                    Transaction.type.in_(["purchase_receipt", "wallet_topup"]),
+                )
+            )
         ).scalars().all()
     if not txs:
         await message.answer("هیچ رسید در انتظاری وجود ندارد.")
