@@ -91,3 +91,114 @@ def admin_manage_plans_kb() -> InlineKeyboardMarkup:
         ]
     )
 
+
+def payment_cards_kb(cards: list) -> InlineKeyboardMarkup:
+    """Keyboard for displaying payment cards"""
+    rows = []
+    for card in cards:
+        text = f"💳 {card.holder_name} - {card.card_number}"
+        if card.is_primary:
+            text = f"⭐ {text}"
+        rows.append([InlineKeyboardButton(text=text, callback_data=f"card:{card.id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_transaction_actions_kb(tx_id: int) -> InlineKeyboardMarkup:
+    """Enhanced admin transaction review keyboard"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ تایید", callback_data=f"admin:approve_tx:{tx_id}"),
+                InlineKeyboardButton(text="❌ رد", callback_data=f"admin:reject_tx:{tx_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="🔍 جزئیات", callback_data=f"admin:tx_details:{tx_id}"),
+                InlineKeyboardButton(text="🚨 گزارش کلاهبرداری", callback_data=f"admin:report_fraud:{tx_id}"),
+            ]
+        ]
+    )
+
+
+def user_profile_actions_kb(user_id: int) -> InlineKeyboardMarkup:
+    """User profile management keyboard"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔒 مسدود کردن", callback_data=f"admin:block_user:{user_id}"),
+                InlineKeyboardButton(text="🔓 آزاد کردن", callback_data=f"admin:unblock_user:{user_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="💰 تنظیم موجودی", callback_data=f"admin:set_wallet:{user_id}"),
+                InlineKeyboardButton(text="🎁 هدیه", callback_data=f"admin:gift_user:{user_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="📊 آمار کاربر", callback_data=f"admin:user_stats:{user_id}"),
+                InlineKeyboardButton(text="📝 تراکنش‌ها", callback_data=f"admin:user_transactions:{user_id}"),
+            ]
+        ]
+    )
+
+
+def service_management_kb(service_id: int) -> InlineKeyboardMarkup:
+    """Service management keyboard"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔄 تمدید", callback_data=f"service:renew:{service_id}"),
+                InlineKeyboardButton(text="📊 افزودن ترافیک", callback_data=f"service:add_traffic:{service_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="🆔 تغییر UUID", callback_data=f"service:regenerate_uuid:{service_id}"),
+                InlineKeyboardButton(text="🗑️ حذف", callback_data=f"service:delete:{service_id}"),
+            ]
+        ]
+    )
+
+
+def discount_code_actions_kb(code_id: int) -> InlineKeyboardMarkup:
+    """Discount code management keyboard"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✏️ ویرایش", callback_data=f"admin:edit_discount:{code_id}"),
+                InlineKeyboardButton(text="🗑️ حذف", callback_data=f"admin:delete_discount:{code_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="📊 آمار استفاده", callback_data=f"admin:discount_stats:{code_id}"),
+                InlineKeyboardButton(text="🔄 فعال/غیرفعال", callback_data=f"admin:toggle_discount:{code_id}"),
+            ]
+        ]
+    )
+
+
+def reseller_request_actions_kb(request_id: int) -> InlineKeyboardMarkup:
+    """Reseller request management keyboard"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ تایید", callback_data=f"admin:approve_reseller:{request_id}"),
+                InlineKeyboardButton(text="❌ رد", callback_data=f"admin:reject_reseller:{request_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="🚫 سیاه‌چاله", callback_data=f"admin:blacklist_reseller:{request_id}"),
+                InlineKeyboardButton(text="📝 جزئیات", callback_data=f"admin:reseller_details:{request_id}"),
+            ]
+        ]
+    )
+
+
+def broadcast_options_kb() -> InlineKeyboardMarkup:
+    """Broadcast options keyboard"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📝 متن", callback_data="broadcast:text"),
+                InlineKeyboardButton(text="🖼️ تصویر", callback_data="broadcast:image"),
+            ],
+            [
+                InlineKeyboardButton(text="📤 فوروارد", callback_data="broadcast:forward"),
+                InlineKeyboardButton(text="📊 آمار ارسال", callback_data="broadcast:stats"),
+            ]
+        ]
+    )
+

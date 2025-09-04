@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     auto_approve_receipts: bool = False
     min_topup_amount: int = 50_000
     max_topup_amount: int = 50_000_000
+    enable_test_accounts: bool = False
+    require_phone_verification: bool = False
+    join_channel_required: bool = False
+    channel_username: str = ""
 
     # Panels
     default_panel_mode: str = "mock"  # mock | xui | 3xui | hiddify | sanaei
@@ -67,8 +71,20 @@ class Settings(BaseSettings):
     referral_percent: int = 10
     referral_fixed: int = 0
 
+    # Security
+    enable_fraud_detection: bool = True
+    max_daily_transactions: int = 10
+    max_daily_amount: int = 1_000_000
+
+    # Payment Gateways
+    enable_stars: bool = False
+    enable_zarinpal: bool = False
+    zarinpal_merchant_id: str = ""
+
     # Misc
     status_url: str = ""
+    uptime_robot_api_key: str = ""
+    support_channel: str = ""
 
 
 @lru_cache
