@@ -1,0 +1,24 @@
+# Crontab example for VPN Bot automatic backups
+# Add these lines to your crontab using: crontab -e
+
+# Run backup scheduler every hour
+0 * * * * cd /path/to/vpn-telegram-bot && python scripts/backup_cron.py >> /var/log/vpn-bot-backup.log 2>&1
+
+# Alternative: Run specific backup tasks at specific times
+# Daily backup at 2 AM
+0 2 * * * cd /path/to/vpn-telegram-bot && python -c "import asyncio; from app.services.backup_service import backup_service; asyncio.run(backup_service.create_database_backup('daily', compress=True))" >> /var/log/vpn-bot-backup.log 2>&1
+
+# Weekly backup on Sunday at 3 AM
+0 3 * * 0 cd /path/to/vpn-telegram-bot && python -c "import asyncio; from app.services.backup_service import backup_service; asyncio.run(backup_service.create_database_backup('weekly', compress=True))" >> /var/log/vpn-bot-backup.log 2>&1
+
+# Monthly backup on 1st day of month at 4 AM
+0 4 1 * * cd /path/to/vpn-telegram-bot && python -c "import asyncio; from app.services.backup_service import backup_service; asyncio.run(backup_service.create_database_backup('monthly', compress=True))" >> /var/log/vpn-bot-backup.log 2>&1
+
+# Cleanup old backups at 5 AM daily
+0 5 * * * cd /path/to/vpn-telegram-bot && python -c "import asyncio; from app.services.backup_service import backup_service; asyncio.run(backup_service.cleanup_old_backups({'daily': 7, 'weekly': 4, 'monthly': 12, 'manual': 30}))" >> /var/log/vpn-bot-backup.log 2>&1
+
+# Make sure to:
+# 1. Replace /path/to/vpn-telegram-bot with your actual project path
+# 2. Ensure the backup directory is writable
+# 3. Check log files regularly for any errors
+# 4. Test the backup and restore process before relying on it

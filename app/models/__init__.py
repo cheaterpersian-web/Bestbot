@@ -13,6 +13,9 @@ from .content import ContentItem
 from .admin import AdminUser, BotSettings, Gift, ResellerRequest, Reseller, Button
 from .analytics import UserActivity, DailyStats, ServiceUsage
 from .trial import TrialRequest, TrialConfig
+from .smart_discounts import SmartDiscount, DiscountUsage, CashbackRule, CashbackTransaction, UserDiscountProfile
+from .crm import UserProfile, UserActivity, PersonalizedOffer, Campaign, CampaignRecipient, UserInsight, CustomerJourney
+from .notifications import Notification, NotificationTemplate, NotificationSettings, NotificationLog
 
 __all__ = [
     "Base",
@@ -41,4 +44,20 @@ __all__ = [
     "ServiceUsage",
     "TrialRequest",
     "TrialConfig",
+    "SmartDiscount",
+    "DiscountUsage",
+    "CashbackRule",
+    "CashbackTransaction",
+    "UserDiscountProfile",
+    "UserProfile",
+    "UserActivity",
+    "PersonalizedOffer",
+    "Campaign",
+    "CampaignRecipient",
+    "UserInsight",
+    "CustomerJourney",
+    "Notification",
+    "NotificationTemplate",
+    "NotificationSettings",
+    "NotificationLog",
 ]

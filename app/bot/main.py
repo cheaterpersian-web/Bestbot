@@ -32,6 +32,10 @@ from .routers import discounts as discounts_router
 from .routers import resellers as resellers_router
 from .routers import payment_gateways as payment_gateways_router
 from .routers import trial_system as trial_system_router
+from .routers import smart_discounts as smart_discounts_router
+from .routers import crm as crm_router
+from .routers import backup as backup_router
+from .routers import notifications as notifications_router
 
 
 router = Router()
@@ -119,6 +123,10 @@ async def main() -> None:
     dp.include_router(resellers_router.router)
     dp.include_router(payment_gateways_router.router)
     dp.include_router(trial_system_router.router)
+    dp.include_router(smart_discounts_router.router)
+    dp.include_router(crm_router.router)
+    dp.include_router(backup_router.router)
+    dp.include_router(notifications_router.router)
 
     bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
     await bot.delete_webhook(drop_pending_updates=True)
