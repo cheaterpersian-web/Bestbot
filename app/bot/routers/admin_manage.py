@@ -28,8 +28,8 @@ async def _is_admin(telegram_id: int) -> bool:
 class AddServerStates(StatesGroup):
     waiting_name = State()
     waiting_base_url = State()
-    waiting_api_key = State()
     waiting_panel_type = State()
+    waiting_api_key = State()
 
 
 @router.message(Command("add_server"))
@@ -51,35 +51,53 @@ async def add_server_name(message: Message, state: FSMContext):
 @router.message(AddServerStates.waiting_base_url)
 async def add_server_base_url(message: Message, state: FSMContext):
     await state.update_data(base_url=message.text.strip())
-    await message.answer("API Key را وارد کنید")
-    await state.set_state(AddServerStates.waiting_api_key)
+    await message.answer("نوع پنل (mock/xui/3xui/hiddify/sanaei)")
+    await state.set_state(AddServerStates.waiting_panel_type)
 
 
 @router.message(AddServerStates.waiting_api_key)
 async def add_server_api_key(message: Message, state: FSMContext):
     await state.update_data(api_key=message.text.strip())
-    await message.answer("نوع پنل (mock/xui/3xui/hiddify)")
-    await state.set_state(AddServerStates.waiting_panel_type)
+    data = await state.get_data()
+    async with get_db_session() as session:
+        s = Server(
+            name=data["name"],
+            api_base_url=data["base_url"],
+            api_key=data.get("api_key", ""),
+            panel_type=data["panel_type"],
+            is_active=True,
+        )
+        session.add(s)
+    await state.clear()
+    await message.answer("سرور ثبت شد.")
 
 
 @router.message(AddServerStates.waiting_panel_type)
 async def add_server_panel_type(message: Message, state: FSMContext):
     data = await state.get_data()
     panel_type = message.text.strip().lower()
-    if panel_type not in {"mock", "xui", "3xui", "hiddify"}:
-        await message.answer("نوع نامعتبر است. یکی از mock/xui/3xui/hiddify")
+    allowed = {"mock", "xui", "3xui", "hiddify", "sanaei"}
+    if panel_type not in allowed:
+        await message.answer("نوع نامعتبر است. یکی از mock/xui/3xui/hiddify/sanaei")
         return
-    async with get_db_session() as session:
-        s = Server(
-            name=data["name"],
-            api_base_url=data["base_url"],
-            api_key=data["api_key"],
-            panel_type=panel_type,
-            is_active=True,
-        )
-        session.add(s)
-    await state.clear()
-    await message.answer("سرور ثبت شد.")
+    # If panel does not require api key (e.g., sanaei), finish here
+    if panel_type == "sanaei":
+        async with get_db_session() as session:
+            s = Server(
+                name=data["name"],
+                api_base_url=data["base_url"],
+                api_key="",
+                panel_type=panel_type,
+                is_active=True,
+            )
+            session.add(s)
+        await state.clear()
+        await message.answer("سرور ثبت شد (بدون نیاز به API Key).")
+        return
+    # Otherwise, ask for API key
+    await state.update_data(panel_type=panel_type)
+    await message.answer("API Key را وارد کنید")
+    await state.set_state(AddServerStates.waiting_api_key)
 
 
 @router.message(Command("list_servers"))

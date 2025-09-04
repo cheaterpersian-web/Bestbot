@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     max_topup_amount: int = 50_000_000
 
     # Panels
-    default_panel_mode: str = "mock"  # mock | xui | 3xui | hiddify
+    default_panel_mode: str = "mock"  # mock | xui | 3xui | hiddify | sanaei
 
     # Referrals
     referral_percent: int = 10

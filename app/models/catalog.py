@@ -9,7 +9,7 @@ from .base import Base
 class Server(Base):
     name: Mapped[str] = mapped_column(String(64), unique=True)
     api_base_url: Mapped[str] = mapped_column(String(256))
-    api_key: Mapped[str] = mapped_column(String(256))
+    api_key: Mapped[str] = mapped_column(String(256), default="")
     panel_type: Mapped[str] = mapped_column(String(16), default="mock")  # mock | xui | 3xui | hiddify
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     capacity_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # optional capacity tracking
