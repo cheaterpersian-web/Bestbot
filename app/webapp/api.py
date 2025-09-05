@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
 from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
 import json
 import hmac
@@ -17,9 +16,6 @@ from services.vpn_panel_service import VPNPanelService
 
 
 router = APIRouter(prefix="/api", tags=["webapp"])
-
-# Mount static files
-router.mount("/static", StaticFiles(directory="app/webapp/static"), name="static")
 
 
 def verify_telegram_auth(authorization: str = Header(None)) -> dict:
