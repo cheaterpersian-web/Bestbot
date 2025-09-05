@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import List
 import json
 
-from pydantic import field_validator
+from pydantic import field_validator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # Telegram
-    bot_token: str = "your_telegram_bot_token_here"
+    # Map env BOT_TOKEN -> bot_token; also accept BOT_TOKEN in .env
+    bot_token: str = Field(default="your_telegram_bot_token_here", alias="BOT_TOKEN")
     admin_ids: List[int] = []
     bot_username: str = ""
 
