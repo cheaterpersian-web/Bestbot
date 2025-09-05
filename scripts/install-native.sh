@@ -129,7 +129,24 @@ setup_redis() {
 setup_env() {
   info "Creating .env file ($ENV_FILE)"
   if [[ -f "$ENV_FILE" ]]; then
-    warn ".env already exists, keeping it."
+    warn ".env already exists, adjusting DATABASE_URL and Redis for native install if needed."
+    # Force DATABASE_URL host to 127.0.0.1 to avoid 'db' hostname issues in native installs
+    if grep -qE '^DATABASE_URL=' "$ENV_FILE"; then
+      # Replace @db or @localhost with @127.0.0.1
+      sed -i -E 's/@db([:/])/@127.0.0.1\1/g; s/@localhost([:/])/@127.0.0.1\1/g' "$ENV_FILE" || true
+      # Ensure default port :3306 exists after 127.0.0.1 when missing
+      sed -i -E 's@(@127\.0\.0\.1)/@\1:3306/@g' "$ENV_FILE" || true
+    else
+      DB_NAME="${MYSQL_DATABASE:-vpn_bot}"; DB_USER="${MYSQL_USER:-vpn_user}"; DB_PASS="${MYSQL_PASSWORD:-vpn_pass}"
+      echo "DATABASE_URL=mysql+aiomysql://$DB_USER:$DB_PASS@127.0.0.1:3306/$DB_NAME?charset=utf8mb4" >> "$ENV_FILE"
+    fi
+    # Ensure Redis points to local too
+    if grep -qE '^REDIS_URL=' "$ENV_FILE"; then
+      sed -i -E 's#^REDIS_URL=.*#REDIS_URL=redis://127.0.0.1:6379/0#g' "$ENV_FILE" || true
+    else
+      echo "REDIS_URL=redis://127.0.0.1:6379/0" >> "$ENV_FILE"
+    fi
+    ok ".env adjusted for native install"
     return
   fi
   read -r -p "Enter Telegram BOT_TOKEN: " BOT_TOKEN
