@@ -1,124 +1,43 @@
-# 🚀 ربات تلگرام VPN - نصب آسان
-# VPN Telegram Bot - Easy Installation
+# Installation (v1.0.1)
 
-## ⚡ نصب یک اسکریپتی
-## One-Script Installation
+Old one-script installer has been removed. Use Docker Compose with PostgreSQL.
 
-### روش 1: دانلود مستقیم
+## 📋 Prerequisites
+- Linux/macOS/WSL2
+- Docker & Docker Compose
+- Telegram Bot Token
+
+## 🚀 Steps
+1) Create env file
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cheaterpersian-web/Bestbot/main/install.sh | bash
+cp .env.example .env
 ```
 
-### روش 2: دانلود و اجرا
+2) Start stack
 ```bash
-wget https://raw.githubusercontent.com/cheaterpersian-web/Bestbot/main/install.sh
-chmod +x install.sh
-./install.sh
+docker compose up -d --build
 ```
 
----
-
-## 📋 پیش نیازها
-## Prerequisites
-
-- **سیستم عامل**: Linux (Ubuntu 18.04+), macOS, Windows (WSL2)
-- **RAM**: حداقل 2GB، توصیه 4GB+
-- **فضای دیسک**: حداقل 10GB
-- **اینترنت**: اتصال پایدار
-
----
-
-## 🎯 مراحل نصب
-## Installation Steps
-
-1. **اجرای اسکریپت نصب** - اسکریپت به صورت خودکار:
-   - Docker و Docker Compose را نصب می‌کند
-   - مخزن را کلون می‌کند
-   - فایل تنظیمات را ایجاد می‌کند
-   - تمام سرویس‌ها را راه‌اندازی می‌کند
-
-2. **وارد کردن اطلاعات**:
-   - توکن ربات تلگرام (از @BotFather)
-   - شناسه‌های ادمین
-   - نام کاربری ربات
-   - رمز عبور پایگاه داده
-
-3. **انتظار برای تکمیل** (5-10 دقیقه)
-
----
-
-## ✅ بررسی نصب
-## Verify Installation
-
+3) Verify
 ```bash
-# بررسی وضعیت سرویس‌ها
-docker-compose ps
-
-# مشاهده لاگ‌ها
-docker-compose logs -f
-
-# بررسی API
+docker compose ps
+docker compose logs -f api | cat
 curl http://localhost:8000/health
 ```
 
----
+## 🔗 Services
+- API: http://localhost:8000
+- Bot: runs in background after migrations
 
-## 🔗 دسترسی به سرویس‌ها
-## Service Access
-
-- **ربات**: @your_bot_username
-- **API**: http://localhost:8000
-- **Grafana**: http://localhost:3000 (admin/admin)
-- **Prometheus**: http://localhost:9090
-
----
-
-## 🛠️ دستورات مفید
-## Useful Commands
-
+## 🛠️ Common Commands
 ```bash
-# راه‌اندازی سرویس‌ها
-docker-compose up -d
-
-# توقف سرویس‌ها
-docker-compose down
-
-# راه‌اندازی مجدد
-docker-compose restart
-
-# پشتیبان‌گیری
-./scripts/backup.sh
-
-# به‌روزرسانی
-./scripts/update.sh
+docker compose restart api
+docker compose exec api alembic upgrade head
+docker compose down -v
 ```
 
----
+## 📚 Docs
+- Quick start: QUICK_START.md
+- Full guide: INSTALLATION_GUIDE_FA.md
 
-## 📚 مستندات کامل
-## Complete Documentation
-
-- **راهنمای کامل نصب**: [INSTALLATION_GUIDE_FA.md](INSTALLATION_GUIDE_FA.md)
-- **راهنمای سریع**: [QUICK_START.md](QUICK_START.md)
-- **فایل نمونه تنظیمات**: [.env.template](.env.template)
-
----
-
-## 🆘 پشتیبانی
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/cheaterpersian-web/Bestbot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/cheaterpersian-web/Bestbot/discussions)
-
----
-
-## 🎉 تبریک!
-## Congratulations!
-
-ربات تلگرام VPN شما آماده استفاده است! 🎉
-
-**مرحله بعدی**: تنظیم پنل VPN و شروع فروش خدمات
-
----
-
-**نکته**: این ربات برای ارائه‌دهندگان قانونی خدمات VPN طراحی شده است.
+Note: This project is for legitimate VPN service providers.

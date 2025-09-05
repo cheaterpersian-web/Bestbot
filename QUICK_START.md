@@ -4,17 +4,7 @@
 ## ⚡ نصب یک اسکریپتی (توصیه شده)
 ## One-Script Installation (Recommended)
 
-### روش 1: دانلود مستقیم
-```bash
-curl -fsSL https://raw.githubusercontent.com/cheaterpersian-web/Bestbot/main/install.sh | bash
-```
-
-### روش 2: دانلود و اجرا
-```bash
-wget https://raw.githubusercontent.com/cheaterpersian-web/Bestbot/main/install.sh
-chmod +x install.sh
-./install.sh
-```
+> نسخه 1.0.1: نصب یک‌اسکریپتی حذف شده است. از Docker Compose استفاده کنید.
 
 ---
 
@@ -60,11 +50,15 @@ chmod +x install.sh
 
 ### دستورات بررسی
 ```bash
+# آماده‌سازی و اجرا
+cp .env.example .env
+docker compose up -d --build
+
 # بررسی وضعیت سرویس‌ها
-docker-compose ps
+docker compose ps
 
 # مشاهده لاگ‌ها
-docker-compose logs -f
+docker compose logs -f api | cat
 
 # بررسی API
 curl http://localhost:8000/health
@@ -103,7 +97,7 @@ PANEL_PASSWORD=your_password
 
 ### 3. راه‌اندازی مجدد
 ```bash
-docker-compose restart
+docker compose restart
 ```
 
 ---
@@ -114,16 +108,16 @@ docker-compose restart
 ### مدیریت سرویس‌ها
 ```bash
 # راه‌اندازی
-docker-compose up -d
+docker compose up -d
 
 # توقف
-docker-compose down
+docker compose down
 
 # راه‌اندازی مجدد
-docker-compose restart
+docker compose restart
 
 # مشاهده لاگ‌ها
-docker-compose logs -f bot
+docker compose logs -f bot | cat
 ```
 
 ### پشتیبان‌گیری
@@ -138,10 +132,10 @@ docker-compose logs -f bot
 ### عیب‌یابی
 ```bash
 # بررسی وضعیت
-docker-compose ps
+docker compose ps
 
 # بررسی لاگ‌ها
-docker-compose logs
+docker compose logs | cat
 
 # بررسی منابع
 docker stats
@@ -176,7 +170,7 @@ docker-compose up -d
 curl "https://api.telegram.org/bot$BOT_TOKEN/getMe"
 
 # بررسی لاگ‌های ربات
-docker-compose logs bot
+docker compose logs bot | cat
 ```
 
 ---

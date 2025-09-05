@@ -52,7 +52,7 @@ class Settings(BaseSettings):
         return []
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./vpn_bot.db"
+    database_url: str = "postgresql+asyncpg://vpn_user:vpn_pass@db:5432/vpn_bot"
 
     # Sales/Payments
     sales_enabled: bool = True

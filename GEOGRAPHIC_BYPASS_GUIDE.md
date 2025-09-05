@@ -54,8 +54,7 @@ sudo systemctl restart docker
 
 ```bash
 # دانلود تصاویر اصلی
-docker pull mysql:8.3
-docker pull redis:7-alpine
+docker pull postgres:16-alpine
 docker pull nginx:alpine
 
 # دانلود تصاویر مانیتورینگ از منابع جایگزین
@@ -71,12 +70,12 @@ docker tag quay.io/grafana/grafana:latest grafana/grafana:latest
 
 **گزینه A: نصب کامل با مانیتورینگ**
 ```bash
-docker-compose -f docker-compose-alternative.yml up -d
+docker compose up -d
 ```
 
 **گزینه B: نصب حداقلی بدون مانیتورینگ**
 ```bash
-docker-compose -f docker-compose-minimal.yml up -d
+docker compose up -d
 ```
 
 ### 3. استفاده از VPN یا پروکسی
@@ -90,25 +89,17 @@ export HTTPS_PROXY=http://your-proxy:port
 export NO_PROXY=localhost,127.0.0.1
 
 # سپس اجرای نصب عادی
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 4. نصب بدون Docker (پیشرفته)
 
 اگر Docker اصلاً کار نمی‌کند، می‌توانید سرویس‌ها را مستقیماً نصب کنید:
 
-#### نصب MySQL
+#### نصب PostgreSQL (در صورت نیاز نیتیو)
 ```bash
 sudo apt update
-sudo apt install mysql-server-8.0
-sudo mysql_secure_installation
-```
-
-#### نصب Redis
-```bash
-sudo apt install redis-server
-sudo systemctl enable redis-server
-sudo systemctl start redis-server
+sudo apt install postgresql
 ```
 
 #### نصب Python و وابستگی‌ها
@@ -127,7 +118,7 @@ pip install -r requirements.txt
 docker ps
 
 # بررسی لاگ‌ها
-docker-compose logs
+docker compose logs | cat
 
 # تست API
 curl http://localhost:8000/health
@@ -148,13 +139,13 @@ curl http://localhost:8000/health
 docker system prune -a
 
 # تلاش مجدد با آینه‌های مختلف
-docker pull --platform linux/amd64 mysql:8.3
+docker pull --platform linux/amd64 postgres:16-alpine
 ```
 
 ### مشکل: کانتینرها شروع نمی‌شوند
 ```bash
 # بررسی لاگ‌ها
-docker-compose logs [service_name]
+docker compose logs [service_name] | cat
 
 # بررسی پورت‌های استفاده شده
 sudo netstat -tulpn | grep :3306
@@ -163,11 +154,8 @@ sudo netstat -tulpn | grep :6379
 
 ### مشکل: دسترسی به دیتابیس
 ```bash
-# اتصال به MySQL
-docker exec -it vpn_bot_mysql mysql -u root -p
-
-# اتصال به Redis
-docker exec -it vpn_bot_redis redis-cli
+# اتصال به PostgreSQL
+docker exec -it vpn_bot_postgres psql -U vpn_user -d vpn_bot
 ```
 
 ## نکات مهم

@@ -43,7 +43,7 @@ A comprehensive, production-ready Telegram bot for selling VPN services with Per
 
 ### 🔧 Technical Features
 - **🏗️ Modular Architecture**: Clean separation of concerns
-- **🗄️ Database**: PostgreSQL/MySQL with optimized queries
+- **🗄️ Database**: PostgreSQL with optimized queries
 - **🔒 Security**: Receipt validation, anti-fraud detection
 - **🐳 Dockerized**: Complete stack with Bot + DB + API
 - **🔌 API Integrations**: x-ui, 3x-ui, Hiddify panel support
@@ -53,7 +53,7 @@ A comprehensive, production-ready Telegram bot for selling VPN services with Per
 ## 📋 Requirements
 
 - Python 3.11+
-- PostgreSQL 13+ or MySQL 8.0+
+- PostgreSQL 13+
 - Docker & Docker Compose (recommended)
 - Telegram Bot Token
 - VPN Panel API access (x-ui, 3x-ui, or Hiddify)
@@ -75,8 +75,8 @@ BOT_TOKEN=your_telegram_bot_token_here
 ADMIN_IDS=[123456789,987654321]
 BOT_USERNAME=your_bot_username
 
-# Database
-DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot?charset=utf8mb4
+# Database (PostgreSQL)
+DATABASE_URL=postgresql+asyncpg://vpn_user:vpn_pass@db:5432/vpn_bot
 
 # Sales/Payments
 SALES_ENABLED=true
@@ -104,28 +104,24 @@ UPTIME_ROBOT_API_KEY=
 SUPPORT_CHANNEL=@your_support_channel
 ```
 
-### 3. Start with Docker
+### 3. Start with Docker (v1.0.1)
 ```bash
-docker-compose up -d
+cp .env.example .env
+docker compose up -d --build
 ```
 
-### 4. Native Install (No Docker, recommended if Docker Hub is blocked)
-If Docker images cannot be pulled due to geo-restrictions, install natively:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/cheaterpersian-web/Bestbot/HEAD/scripts/install-native.sh -o install-native.sh
-sudo bash install-native.sh
-```
-
-This will install MariaDB, Redis, a Python virtualenv, create `.env`, install systemd services (`vpn-bot-api`, `vpn-bot-worker`), and configure Nginx on port 80.
+### 4. Notes on v1.0.1 Installer
+- Old "easy install" and MySQL/Redis stack have been removed.
+- New stack uses Docker Compose with PostgreSQL and Alembic migrations.
+- Configure your env via `.env` (see `.env.example`).
 
 ### 5. Manual Setup (Alternative)
 ```bash
 # Install dependencies
 pip install -r app/requirements.txt
 
-# Initialize database
-python -m alembic upgrade head
+# Initialize database (inside container)
+docker compose exec api alembic upgrade head
 
 # Start the bot
 python -m bot.main

@@ -40,7 +40,7 @@ This document provides a comprehensive overview of the completed VPN Telegram Bo
 
 ### Technical Features
 - **🏗️ Modular Architecture**: Clean separation of concerns
-- **🗄️ Database**: Optimized PostgreSQL/MySQL with indexes
+- **🗄️ Database**: Optimized PostgreSQL with indexes
 - **🔒 Security**: Advanced fraud detection and validation
 - **🐳 Dockerized**: Complete containerized deployment
 - **🔌 API Integrations**: x-ui, 3x-ui, Hiddify panel support
@@ -95,7 +95,7 @@ ADMIN_IDS=[123456789,987654321]
 BOT_USERNAME=your_bot_username
 
 # Database
-DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot?charset=utf8mb4
+DATABASE_URL=postgresql+asyncpg://vpn_user:vpn_pass@db:5432/vpn_bot
 
 # Payment Gateways
 ENABLE_STARS=true

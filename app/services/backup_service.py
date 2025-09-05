@@ -47,10 +47,10 @@ class BackupService:
         
         # Parse database URL
         db_url = settings.database_url
-        if db_url.startswith("mysql"):
-            await self._create_mysql_backup(backup_path, db_url)
-        elif db_url.startswith("postgresql"):
+        if db_url.startswith("postgresql"):
             await self._create_postgresql_backup(backup_path, db_url)
+        elif db_url.startswith("mysql"):
+            await self._create_mysql_backup(backup_path, db_url)
         else:
             raise ValueError(f"Unsupported database type: {db_url}")
         
@@ -225,10 +225,10 @@ class BackupService:
         
         # Restore based on database type
         db_url = settings.database_url
-        if db_url.startswith("mysql"):
-            await self._restore_mysql_backup(backup_path, db_url)
-        elif db_url.startswith("postgresql"):
+        if db_url.startswith("postgresql"):
             await self._restore_postgresql_backup(backup_path, db_url)
+        elif db_url.startswith("mysql"):
+            await self._restore_mysql_backup(backup_path, db_url)
         else:
             raise ValueError(f"Unsupported database type: {db_url}")
         
