@@ -94,8 +94,7 @@ pull_images_with_fallback() {
     
     # List of images to pull
     declare -A images=(
-        ["mysql:8.3"]="mysql:8.3"
-        ["redis:7-alpine"]="redis:7-alpine"
+        ["postgres:16-alpine"]="postgres:16-alpine"
         ["nginx:alpine"]="nginx:alpine"
         ["prom/prometheus:latest"]="quay.io/prometheus/prometheus:latest"
         ["grafana/grafana:latest"]="quay.io/grafana/grafana:latest"
@@ -128,26 +127,16 @@ pull_images_with_fallback() {
 install_minimal() {
     log_info "Installing minimal setup without monitoring components..."
     
-    if [[ -f "docker-compose-minimal.yml" ]]; then
-        docker-compose -f docker-compose-minimal.yml up -d
-        log_success "Minimal setup completed successfully"
-    else
-        log_error "docker-compose-minimal.yml not found"
-        exit 1
-    fi
+    docker compose up -d
+    log_success "Minimal setup completed successfully"
 }
 
 # Install with alternative monitoring
 install_with_alternative_monitoring() {
     log_info "Installing with alternative monitoring setup..."
     
-    if [[ -f "docker-compose-alternative.yml" ]]; then
-        docker-compose -f docker-compose-alternative.yml up -d
-        log_success "Alternative setup with monitoring completed successfully"
-    else
-        log_error "docker-compose-alternative.yml not found"
-        exit 1
-    fi
+    docker compose up -d
+    log_success "Alternative setup with monitoring completed successfully"
 }
 
 # Main installation function

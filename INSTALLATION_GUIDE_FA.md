@@ -224,14 +224,15 @@ PANEL_PASSWORD=your_password
 ### راه‌اندازی سرویس‌ها / Starting Services
 
 ```bash
-# راه‌اندازی تمام سرویس‌ها
-docker-compose up -d
+# راه‌اندازی تمام سرویس‌ها (نسخه 1.0.1)
+cp .env.example .env
+docker compose up -d --build
 
 # بررسی وضعیت سرویس‌ها
-docker-compose ps
+docker compose ps
 
 # مشاهده لاگ‌ها
-docker-compose logs -f
+docker compose logs -f | cat
 ```
 
 ### بررسی سلامت سرویس‌ها / Health Check
@@ -240,11 +241,8 @@ docker-compose logs -f
 # بررسی API
 curl http://localhost:8000/health
 
-# بررسی پایگاه داده
-docker-compose exec db mysql -u root -p -e "SHOW DATABASES;"
-
-# بررسی Redis
-docker-compose exec redis redis-cli ping
+# بررسی پایگاه داده (PostgreSQL)
+docker compose exec db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "\\l" | cat
 ```
 
 ### دسترسی به پنل‌های نظارت / Accessing Monitoring Panels
@@ -331,8 +329,8 @@ MAX_BACKUP_FILES=7
 ### پشتیبان‌گیری دستی / Manual Backup
 
 ```bash
-# پشتیبان‌گیری از پایگاه داده
-docker-compose exec db mysqldump -u root -p vpn_bot > backup_$(date +%Y%m%d_%H%M%S).sql
+# پشتیبان‌گیری از پایگاه داده (PostgreSQL)
+docker compose exec -T db pg_dump -U $POSTGRES_USER -d $POSTGRES_DB > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # پشتیبان‌گیری از فایل‌های تنظیمات
 tar -czf config_backup_$(date +%Y%m%d_%H%M%S).tar.gz .env docker-compose.yml
@@ -344,8 +342,8 @@ tar -czf config_backup_$(date +%Y%m%d_%H%M%S).tar.gz .env docker-compose.yml
 ### بازیابی / Restore
 
 ```bash
-# بازیابی پایگاه داده
-docker-compose exec -T db mysql -u root -p vpn_bot < backup_file.sql
+# بازیابی پایگاه داده (PostgreSQL)
+docker compose exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB < backup_file.sql
 
 # بازیابی تنظیمات
 tar -xzf config_backup.tar.gz
@@ -369,12 +367,12 @@ tar -xzf config_backup.tar.gz
 git pull origin main
 
 # بازسازی و راه‌اندازی مجدد
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 
 # اجرای مایگریشن‌ها
-docker-compose exec bot python -m alembic upgrade head
+docker compose exec api alembic upgrade head
 ```
 
 ---

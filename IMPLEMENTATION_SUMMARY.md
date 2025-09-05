@@ -171,7 +171,7 @@ ADMIN_IDS=[123456789,987654321]
 BOT_USERNAME=your_bot_username
 
 # Database
-DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot?charset=utf8mb4
+DATABASE_URL=postgresql+asyncpg://vpn_user:vpn_pass@db:5432/vpn_bot
 
 # Payment Gateways
 ENABLE_STARS=true

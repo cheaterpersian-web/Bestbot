@@ -48,7 +48,7 @@ cd vpn-telegram-bot
 chmod +x scripts/*.sh
 ```
 
-### Step 3: Environment Configuration
+### Step 3: Environment Configuration (v1.0.1)
 
 Create the `.env` file:
 
@@ -70,7 +70,7 @@ BOT_USERNAME=your_bot_username
 # ===========================================
 # DATABASE CONFIGURATION
 # ===========================================
-DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot?charset=utf8mb4
+DATABASE_URL=postgresql+asyncpg://vpn_user:vpn_pass@db:5432/vpn_bot
 
 # ===========================================
 # SALES & PAYMENT CONFIGURATION
@@ -134,7 +134,7 @@ REQUIRE_PHONE_VERIFICATION=false
 
 ### Step 5: Database Setup
 
-The bot uses MySQL by default. The database will be automatically created when you start the containers.
+The bot now uses PostgreSQL by default via Docker. The database will be automatically created when you start the containers.
 
 ### Step 6: VPN Panel Configuration
 
@@ -153,19 +153,20 @@ The bot uses MySQL by default. The database will be automatically created when y
 2. Configure API access
 3. Set up authentication
 
-### Step 7: Start the Application
+### Step 7: Start the Application (v1.0.1)
 
 ```bash
 # Start all services
-docker-compose up -d
+cp .env.example .env
+docker compose up -d --build
 
 # Check logs
-docker-compose logs -f bot
-docker-compose logs -f api
-docker-compose logs -f db
+docker compose logs -f api | cat
+docker compose logs -f bot | cat
+docker compose logs -f db | cat
 
 # Check status
-docker-compose ps
+docker compose ps
 ```
 
 ### Step 8: Initial Configuration
@@ -333,7 +334,7 @@ artillery run load-test.yml
 1. **Bot Not Responding**:
    ```bash
    # Check bot logs
-   docker-compose logs bot
+   docker compose logs bot | cat
    
    # Verify bot token
    curl -X GET "https://api.telegram.org/bot<TOKEN>/getMe"
@@ -342,10 +343,10 @@ artillery run load-test.yml
 2. **Database Connection Issues**:
    ```bash
    # Check database status
-   docker-compose exec db mysql -u vpn_user -pvpn_pass -e "SHOW DATABASES;"
+   docker compose exec db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "\\l" | cat
    
    # Restart database
-   docker-compose restart db
+   docker compose restart db
    ```
 
 3. **Panel Integration Issues**:
@@ -354,7 +355,7 @@ artillery run load-test.yml
    curl -X GET "https://your-panel.com/api/status"
    
    # Check panel logs
-   docker-compose logs api
+   docker compose logs api | cat
    ```
 
 ### Performance Optimization

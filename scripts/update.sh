@@ -61,7 +61,7 @@ check_directory() {
 check_services() {
     log_info "Checking current service status..."
     
-    if docker-compose ps | grep -q "Up"; then
+    if docker compose ps | grep -q "Up"; then
         log_info "Services are currently running"
         return 0
     else
@@ -89,7 +89,7 @@ create_backup() {
 stop_services() {
     if [ "$STOP_SERVICES" = true ]; then
         log_info "Stopping services..."
-        docker-compose down
+        docker compose down
         log_success "Services stopped"
     fi
 }
@@ -127,11 +127,11 @@ update_images() {
     log_info "Updating Docker images..."
     
     # Pull latest base images
-    docker-compose pull
+    docker compose pull
     
     if [ "$REBUILD_IMAGES" = true ]; then
         log_info "Rebuilding custom images..."
-        docker-compose build --no-cache
+        docker compose build --no-cache
     fi
     
     log_success "Docker images updated"
@@ -140,18 +140,18 @@ update_images() {
 # Start services
 start_services() {
     log_info "Starting services..."
-    docker-compose up -d
+    docker compose up -d
     
     # Wait for services to be ready
     log_info "Waiting for services to be ready..."
     sleep 10
     
     # Check if services are running
-    if docker-compose ps | grep -q "Up"; then
+    if docker compose ps | grep -q "Up"; then
         log_success "Services started successfully"
     else
         log_error "Failed to start services"
-        docker-compose logs
+        docker compose logs | cat
         exit 1
     fi
 }
@@ -162,11 +162,11 @@ run_migrations() {
         log_info "Running database migrations..."
         
         # Wait for database to be ready
-        log_info "Waiting for database to be ready..."
-        timeout 60 bash -c 'until docker-compose exec -T db mysqladmin ping -h localhost --silent; do sleep 2; done'
+        log_info "Waiting for database to be ready (PostgreSQL)..."
+        timeout 60 bash -c 'until docker compose exec -T db pg_isready -U ${POSTGRES_USER:-vpn_user} -d ${POSTGRES_DB:-vpn_bot}; do sleep 2; done'
         
         # Run migrations
-        docker-compose exec -T bot python -m alembic upgrade head
+        docker compose exec -T api alembic upgrade head
         
         if [ $? -eq 0 ]; then
             log_success "Database migrations completed"
@@ -189,7 +189,7 @@ verify_update() {
     fi
     
     # Check bot status
-    if docker-compose exec -T bot python -c "import requests; requests.get('https://api.telegram.org/bot\${BOT_TOKEN}/getMe')" > /dev/null 2>&1; then
+    if docker compose exec -T bot python -c "import requests; requests.get('https://api.telegram.org/bot\${BOT_TOKEN}/getMe')" > /dev/null 2>&1; then
         log_success "Bot is responding"
     else
         log_warning "Bot status check failed"
@@ -197,7 +197,7 @@ verify_update() {
     
     # Show service status
     log_info "Current service status:"
-    docker-compose ps
+    docker compose ps
 }
 
 # Show update summary
@@ -215,9 +215,9 @@ show_summary() {
     echo -e "  • Prometheus: http://localhost:9090"
     echo
     echo -e "${CYAN}Useful Commands:${NC}"
-    echo -e "  • View logs: ${YELLOW}docker-compose logs -f${NC}"
-    echo -e "  • Check status: ${YELLOW}docker-compose ps${NC}"
-    echo -e "  • Restart services: ${YELLOW}docker-compose restart${NC}"
+    echo -e "  • View logs: ${YELLOW}docker compose logs -f | cat${NC}"
+    echo -e "  • Check status: ${YELLOW}docker compose ps${NC}"
+    echo -e "  • Restart services: ${YELLOW}docker compose restart${NC}"
     echo
     echo -e "${GREEN}Your VPN Telegram Bot has been updated successfully!${NC}"
     echo -e "${GREEN}ربات تلگرام VPN شما با موفقیت به روزرسانی شد!${NC}"
@@ -229,10 +229,10 @@ handle_error() {
     log_info "Attempting to restore services..."
     
     # Try to start services
-    docker-compose up -d
+    docker compose up -d
     
     log_warning "Please check the logs and try again:"
-    log_warning "docker-compose logs"
+    log_warning "docker compose logs | cat"
     
     exit 1
 }

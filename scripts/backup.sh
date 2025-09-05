@@ -56,17 +56,10 @@ backup_database() {
         exit 1
     fi
     
-    # Create database backup
-    docker-compose exec -T db mysqldump \
-        -u root \
-        -p"$MYSQL_ROOT_PASSWORD" \
-        --single-transaction \
-        --routines \
-        --triggers \
-        --events \
-        --hex-blob \
-        --default-character-set=utf8mb4 \
-        vpn_bot > "$db_backup_file"
+    # Create database backup (PostgreSQL)
+    : "${POSTGRES_DB:=vpn_bot}"
+    : "${POSTGRES_USER:=vpn_user}"
+    docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$db_backup_file"
     
     if [ $? -eq 0 ]; then
         log_success "Database backup created: $db_backup_file"
@@ -162,10 +155,10 @@ Total Backup Size:
 $(du -sh "$BACKUP_DIR" | cut -f1)
 
 Database Status:
-$(docker-compose exec -T db mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT COUNT(*) as total_users FROM vpn_bot.telegram_users;" 2>/dev/null || echo "Database check failed")
+$(docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\\dt" 2>/dev/null || echo "Database check failed")
 
 Services Status:
-$(docker-compose ps --format "table {{.Name}}\t{{.Status}}")
+$(docker compose ps)
 
 EOF
     
