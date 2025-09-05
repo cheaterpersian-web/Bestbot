@@ -5,7 +5,7 @@ from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.crm import (
-    UserProfile, UserActivity, PersonalizedOffer, Campaign, CampaignRecipient,
+    UserProfile, UserActivity, PersonalizedOffer, CRMCampaign, CampaignRecipient,
     UserInsight, CustomerJourney, UserSegment, ActivityType
 )
 from models.user import TelegramUser
@@ -371,10 +371,10 @@ class CRMService:
         message_content: str,
         target_segments: Optional[List[str]] = None,
         scheduled_at: Optional[datetime] = None
-    ) -> Campaign:
+    ) -> CRMCampaign:
         """Create a new marketing campaign"""
         
-        campaign = Campaign(
+        campaign = CRMCampaign(
             name=name,
             campaign_type=campaign_type,
             message_content=message_content,
@@ -391,7 +391,7 @@ class CRMService:
         return campaign
     
     @staticmethod
-    async def _generate_campaign_recipients(session: AsyncSession, campaign: Campaign):
+    async def _generate_campaign_recipients(session: AsyncSession, campaign: CRMCampaign):
         """Generate recipient list for campaign"""
         
         # Build query based on target segments
@@ -406,7 +406,7 @@ class CRMService:
         
         # Create recipient records
         for user_id in users:
-            recipient = CampaignRecipient(
+            recipient = CRMCampaignRecipient(
                 campaign_id=campaign.id,
                 user_id=user_id
             )
@@ -419,7 +419,7 @@ class CRMService:
         """Get campaign analytics"""
         
         campaign = (await session.execute(
-            select(Campaign).where(Campaign.id == campaign_id)
+            select(CRMCampaign).where(CRMCampaign.id == campaign_id)
         )).scalar_one_or_none()
         
         if not campaign:
@@ -427,7 +427,7 @@ class CRMService:
         
         # Get recipient statistics
         recipients = (await session.execute(
-            select(CampaignRecipient).where(CampaignRecipient.campaign_id == campaign_id)
+            select(CRMCampaignRecipient).where(CRMCampaignRecipient.campaign_id == campaign_id)
         )).scalars().all()
         
         delivered = len([r for r in recipients if r.status == "delivered"])

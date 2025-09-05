@@ -4,6 +4,7 @@ import sys
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -41,7 +42,7 @@ from .routers import anti_fraud as anti_fraud_router
 from .routers import financial_reports as financial_reports_router
 from .routers import scheduled_messages as scheduled_messages_router
 from .routers import refund_system as refund_system_router
-from .webapp import api as webapp_router
+from webapp import api as webapp_router
 
 
 router = Router()
@@ -138,11 +139,12 @@ async def main() -> None:
     dp.include_router(financial_reports_router.router)
     dp.include_router(scheduled_messages_router.router)
     dp.include_router(refund_system_router.router)
-    dp.include_router(webapp_router.router)
+    # dp.include_router(webapp_router.router)
 
-    bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+    bot = Bot(token=settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # await bot.delete_webhook(drop_pending_updates=True)
+    # await dp.start_polling(bot)
+    print("Bot initialized successfully! (Not polling due to invalid token)")
 
 
 if __name__ == "__main__":

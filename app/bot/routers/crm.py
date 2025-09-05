@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 
 from core.config import settings
 from core.db import get_db_session
-from models.crm import UserSegment, ActivityType, Campaign
+from models.crm import UserSegment, ActivityType, CRMCampaign
 from models.user import TelegramUser
 from services.crm_service import CRMService
 
@@ -26,7 +26,7 @@ async def _is_admin(telegram_id: int) -> bool:
         return bool(user and user.is_admin)
 
 
-class CreateCampaignStates(StatesGroup):
+class CreateCRMCampaignStates(StatesGroup):
     waiting_name = State()
     waiting_type = State()
     waiting_content = State()
@@ -279,10 +279,10 @@ async def create_campaign_start(message: Message, state: FSMContext):
         return
     
     await message.answer("نام کمپین را وارد کنید:")
-    await state.set_state(CreateCampaignStates.waiting_name)
+    await state.set_state(CreateCRMCampaignStates.waiting_name)
 
 
-@router.message(CreateCampaignStates.waiting_name)
+@router.message(CreateCRMCampaignStates.waiting_name)
 async def create_campaign_name(message: Message, state: FSMContext):
     await state.update_data(name=message.text.strip())
     
@@ -298,10 +298,10 @@ async def create_campaign_name(message: Message, state: FSMContext):
 عدد مربوطه را وارد کنید:
 """
     await message.answer(types_text)
-    await state.set_state(CreateCampaignStates.waiting_type)
+    await state.set_state(CreateCRMCampaignStates.waiting_type)
 
 
-@router.message(CreateCampaignStates.waiting_type)
+@router.message(CreateCRMCampaignStates.waiting_type)
 async def create_campaign_type(message: Message, state: FSMContext):
     type_map = {
         "1": "telegram_broadcast",
@@ -318,10 +318,10 @@ async def create_campaign_type(message: Message, state: FSMContext):
     
     await state.update_data(campaign_type=campaign_type)
     await message.answer("محتوای پیام را وارد کنید:")
-    await state.set_state(CreateCampaignStates.waiting_content)
+    await state.set_state(CreateCRMCampaignStates.waiting_content)
 
 
-@router.message(CreateCampaignStates.waiting_content)
+@router.message(CreateCRMCampaignStates.waiting_content)
 async def create_campaign_content(message: Message, state: FSMContext):
     await state.update_data(message_content=message.text.strip())
     
@@ -338,10 +338,10 @@ async def create_campaign_content(message: Message, state: FSMContext):
 عدد مربوطه را وارد کنید:
 """
     await message.answer(targets_text)
-    await state.set_state(CreateCampaignStates.waiting_target)
+    await state.set_state(CreateCRMCampaignStates.waiting_target)
 
 
-@router.message(CreateCampaignStates.waiting_target)
+@router.message(CreateCRMCampaignStates.waiting_target)
 async def create_campaign_target(message: Message, state: FSMContext):
     target_map = {
         "1": None,  # All users
@@ -356,10 +356,10 @@ async def create_campaign_target(message: Message, state: FSMContext):
     await state.update_data(target_segments=target_segments)
     
     await message.answer("زمان ارسال (YYYY-MM-DD HH:MM یا 'now' برای الان):")
-    await state.set_state(CreateCampaignStates.waiting_schedule)
+    await state.set_state(CreateCRMCampaignStates.waiting_schedule)
 
 
-@router.message(CreateCampaignStates.waiting_schedule)
+@router.message(CreateCRMCampaignStates.waiting_schedule)
 async def create_campaign_schedule(message: Message, state: FSMContext):
     text = message.text.strip().lower()
     
@@ -401,7 +401,7 @@ async def campaign_stats(message: Message):
     async with get_db_session() as session:
         from sqlalchemy import select
         campaigns = (await session.execute(
-            select(Campaign).order_by(Campaign.created_at.desc()).limit(10)
+            select(CRMCampaign).order_by(CRMCampaign.created_at.desc()).limit(10)
         )).scalars().all()
     
     if not campaigns:

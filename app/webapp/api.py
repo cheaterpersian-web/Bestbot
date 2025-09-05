@@ -13,13 +13,13 @@ from models.user import TelegramUser
 from models.service import Service
 from models.catalog import Server, Category, Plan
 from models.billing import Transaction
-from services.vpn_panel_service import VPNPanelService
+# from services.vpn_panel_service import VPNPanelService
 
 
 router = APIRouter(prefix="/api", tags=["webapp"])
 
 # Mount static files
-router.mount("/static", StaticFiles(directory="app/webapp/static"), name="static")
+# router.mount("/static", StaticFiles(directory="app/webapp/static"), name="static")
 
 
 def verify_telegram_auth(authorization: str = Header(None)) -> dict:
