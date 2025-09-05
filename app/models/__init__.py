@@ -11,10 +11,10 @@ from .support import Ticket, TicketMessage
 from .tutorials import Tutorial
 from .content import ContentItem
 from .admin import AdminUser, BotSettings, Gift, ResellerRequest, Reseller, Button
-from .analytics import UserActivity, DailyStats, ServiceUsage
+from .analytics import AnalyticsUserActivity, DailyStats, ServiceUsage
 from .trial import TrialRequest, TrialConfig
 from .smart_discounts import SmartDiscount, DiscountUsage, CashbackRule, CashbackTransaction, UserDiscountProfile
-from .crm import UserProfile, UserActivity, PersonalizedOffer, Campaign, CampaignRecipient, UserInsight, CustomerJourney
+from .crm import UserProfile, UserActivity, PersonalizedOffer, CRMCampaign, CampaignRecipient, UserInsight, CustomerJourney
 from .notifications import Notification, NotificationTemplate, NotificationSettings, NotificationLog
 from .advanced_reseller import AdvancedReseller, SubReseller, ResellerCommission, ResellerTarget, ResellerActivity, ResellerPayment, ResellerLevelRule
 from .anti_fraud import FraudRule, FraudDetection, UserFraudProfile, FraudPattern, FraudAlert, FraudWhitelist, FraudBlacklist
@@ -43,7 +43,7 @@ __all__ = [
     "ResellerRequest",
     "Reseller",
     "Button",
-    "UserActivity",
+    "AnalyticsUserActivity",
     "DailyStats",
     "ServiceUsage",
     "TrialRequest",
@@ -56,7 +56,7 @@ __all__ = [
     "UserProfile",
     "UserActivity",
     "PersonalizedOffer",
-    "Campaign",
+    "CRMCampaign",
     "CampaignRecipient",
     "UserInsight",
     "CustomerJourney",
@@ -79,7 +79,6 @@ __all__ = [
     "FraudWhitelist",
     "FraudBlacklist",
     "ScheduledMessage",
-    "Campaign",
     "MessageRecipient",
     "MessageTemplate",
     "MessageSchedule",
