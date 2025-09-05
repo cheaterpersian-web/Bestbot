@@ -18,6 +18,8 @@ from .crm import UserProfile, UserActivity, PersonalizedOffer, Campaign, Campaig
 from .notifications import Notification, NotificationTemplate, NotificationSettings, NotificationLog
 from .advanced_reseller import AdvancedReseller, SubReseller, ResellerCommission, ResellerTarget, ResellerActivity, ResellerPayment, ResellerLevelRule
 from .anti_fraud import FraudRule, FraudDetection, UserFraudProfile, FraudPattern, FraudAlert, FraudWhitelist, FraudBlacklist
+from .scheduled_messages import ScheduledMessage, Campaign, MessageRecipient, MessageTemplate, MessageSchedule, MessageAnalytics
+from .refund_system import RefundRequest, ServiceUpgrade, WalletTransaction, RefundPolicy, UpgradeRule, RefundAnalytics
 
 __all__ = [
     "Base",
@@ -76,4 +78,16 @@ __all__ = [
     "FraudAlert",
     "FraudWhitelist",
     "FraudBlacklist",
+    "ScheduledMessage",
+    "Campaign",
+    "MessageRecipient",
+    "MessageTemplate",
+    "MessageSchedule",
+    "MessageAnalytics",
+    "RefundRequest",
+    "ServiceUpgrade",
+    "WalletTransaction",
+    "RefundPolicy",
+    "UpgradeRule",
+    "RefundAnalytics",
 ]
