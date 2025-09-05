@@ -102,6 +102,13 @@ async def placeholder_menu_handler(message: Message):
 
 
 async def main() -> None:
+    # Debug log sanitized token last 4 chars
+    try:
+        tail = settings.bot_token[-4:] if settings.bot_token else ""
+        print(f"[bot] bot_token present: {'yes' if settings.bot_token else 'no'} tail=****{tail}")
+    except Exception:
+        pass
+
     if not settings.bot_token or settings.bot_token == "your_telegram_bot_token_here":
         print("BOT_TOKEN تنظیم نشده است. لطفاً مقدار صحیح را در فایل .env قرار دهید.")
         return
