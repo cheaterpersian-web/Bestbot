@@ -46,6 +46,18 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Determine docker compose command (prefer V2 plugin)
+set_compose_cmd() {
+    if docker compose version >/dev/null 2>&1; then
+        COMPOSE_CMD="docker compose"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        COMPOSE_CMD="docker-compose"
+    else
+        log_error "Docker Compose is not installed. Install docker compose plugin or docker-compose."
+        exit 1
+    fi
+}
+
 # Check if running as root
 check_root() {
     if [[ $EUID -eq 0 ]]; then
@@ -365,14 +377,18 @@ EOF
 start_services() {
     log_info "Building and starting services..."
     
+    # Resolve compose command and clean old state (avoids 'ContainerConfig' errors in compose v1)
+    set_compose_cmd
+    $COMPOSE_CMD down --remove-orphans || true
+    
     # Pull latest images
-    docker-compose pull
+    $COMPOSE_CMD pull
     
     # Build custom images
-    docker-compose build
+    $COMPOSE_CMD build
     
     # Start services
-    docker-compose up -d
+    $COMPOSE_CMD up -d
     
     log_success "Services started successfully"
 }
@@ -383,11 +399,12 @@ wait_for_services() {
     
     # Wait for database
     log_info "Waiting for database..."
-    timeout 60 bash -c 'until docker-compose exec -T db mysqladmin ping -h localhost --silent; do sleep 2; done'
+    set_compose_cmd
+    timeout 60 bash -c 'until '"$COMPOSE_CMD"' exec -T db mysqladmin ping -h localhost --silent; do sleep 2; done'
     
     # Wait for Redis
     log_info "Waiting for Redis..."
-    timeout 30 bash -c 'until docker-compose exec -T redis redis-cli ping; do sleep 2; done'
+    timeout 30 bash -c 'until '"$COMPOSE_CMD"' exec -T redis redis-cli ping; do sleep 2; done'
     
     # Wait for API
     log_info "Waiting for API..."
@@ -399,8 +416,8 @@ wait_for_services() {
 # Run database migrations
 run_migrations() {
     log_info "Running database migrations..."
-    
-    docker-compose exec -T bot python -m alembic upgrade head
+    set_compose_cmd
+    '"$COMPOSE_CMD"' exec -T bot python -m alembic upgrade head
     
     log_success "Database migrations completed"
 }
