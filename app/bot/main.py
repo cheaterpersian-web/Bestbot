@@ -4,6 +4,7 @@ import sys
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -138,7 +139,7 @@ async def main() -> None:
     dp.include_router(scheduled_messages_router.router)
     dp.include_router(refund_system_router.router)
 
-    bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
+    bot = Bot(token=settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
