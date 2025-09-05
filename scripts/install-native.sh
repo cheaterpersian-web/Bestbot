@@ -14,7 +14,29 @@ ok() { echo -e "${GREEN}[OK]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 err() { echo -e "${RED}[ERR]${NC} $*"; }
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve repository root robustly (supports running script outside cloned repo)
+# Priority:
+# 1) REPO_ROOT env var (if provided)
+# 2) Parent of script directory (if contains app/)
+# 3) $PWD/Bestbot (common clone path used by easy installer)
+# 4) $PWD (if contains app/)
+if [[ -n "${REPO_ROOT:-}" ]]; then
+  REPO_ROOT="$(cd "$REPO_ROOT" && pwd)"
+else
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  POSSIBLE_ROOTS=(
+    "$(cd "$SCRIPT_DIR/.." && pwd)"
+    "$PWD/Bestbot"
+    "$PWD"
+  )
+  for path in "${POSSIBLE_ROOTS[@]}"; do
+    if [[ -d "$path/app" ]]; then
+      REPO_ROOT="$path"
+      break
+    fi
+  done
+  REPO_ROOT="${REPO_ROOT:-$SCRIPT_DIR}"
+fi
 APP_DIR="$REPO_ROOT/app"
 ENV_FILE="$REPO_ROOT/.env"
 VENVS_BASE="/opt/vpn-bot"
@@ -51,6 +73,28 @@ install_packages() {
     exit 1
   fi
   ok "Packages installed"
+}
+
+ensure_repo_present() {
+  # Ensure repository root points to a directory containing app/ and requirements.txt
+  if [[ -f "$APP_DIR/requirements.txt" ]]; then
+    return
+  fi
+  warn "Repository not found at $REPO_ROOT (missing $APP_DIR/requirements.txt)"
+  if command -v git >/dev/null 2>&1; then
+    info "Cloning repository into /opt/vpn-bot/src/Bestbot..."
+    mkdir -p /opt/vpn-bot/src
+    if [[ ! -d /opt/vpn-bot/src/Bestbot/.git ]]; then
+      git clone https://github.com/cheaterpersian-web/Bestbot.git /opt/vpn-bot/src/Bestbot || true
+    fi
+    REPO_ROOT="/opt/vpn-bot/src/Bestbot"
+    APP_DIR="$REPO_ROOT/app"
+    ENV_FILE="$REPO_ROOT/.env"
+    ok "Repository prepared at $REPO_ROOT"
+  else
+    err "Git is not installed. Cannot fetch repository."
+    exit 1
+  fi
 }
 
 create_user() {
@@ -226,6 +270,7 @@ main() {
   detect_os
   install_packages
   create_user
+  ensure_repo_present
   setup_mysql
   setup_redis
   setup_env
