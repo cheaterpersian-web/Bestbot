@@ -130,7 +130,7 @@ class PersonalizedOffer(Base):
     creation_reason: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
 
-class Campaign(Base):
+class CRMCampaign(Base):
     """Marketing campaigns"""
     name: Mapped[str] = mapped_column(String(128))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -169,7 +169,7 @@ class Campaign(Base):
 
 class CampaignRecipient(Base):
     """Campaign recipients tracking"""
-    campaign_id: Mapped[int] = mapped_column(ForeignKey("campaign.id"))
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("crmcampaign.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("telegramuser.id"))
     
     # Delivery status

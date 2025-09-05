@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base
 
 
-class UserActivity(Base):
+class AnalyticsUserActivity(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("telegramuser.id"))
     action: Mapped[str] = mapped_column(String(64))  # login | purchase | wallet_topup | config_use | etc.
     details: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
