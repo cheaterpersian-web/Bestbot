@@ -166,6 +166,11 @@ class CRMCampaign(Base):
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
+# Backward-compatibility alias for routers importing Campaign
+# Some parts of the app import `Campaign` from models.crm
+# Provide alias to avoid ImportError without refactoring all routers
+Campaign = CRMCampaign
+
 
 class CampaignRecipient(Base):
     """Campaign recipients tracking"""
