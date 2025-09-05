@@ -86,7 +86,7 @@ class UserActivity(Base):
     
     # Activity details
     description: Mapped[str] = mapped_column(String(512))
-    metadata: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)  # Additional context
+    activity_metadata: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)  # Additional context
     
     # Context
     session_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)

@@ -180,7 +180,7 @@ class ResellerActivity(Base):
     service_id: Mapped[Optional[int]] = mapped_column(ForeignKey("service.id"), nullable=True)
     
     # Metadata
-    metadata: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
+    payment_metadata: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
     
     # Date
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
