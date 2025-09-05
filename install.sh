@@ -168,13 +168,24 @@ create_env_file() {
     log_info "Creating environment configuration file..."
     
     if [ -f ".env" ]; then
-        log_warning ".env file already exists"
-        read -p "Do you want to overwrite it? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            log_info "Using existing .env file"
-            return
+        log_warning ".env file already exists, normalizing for Docker and continuing."
+        # Ensure DATABASE_URL uses Docker hostnames (db) instead of localhost/127.0.0.1
+        if grep -qE '^DATABASE_URL=' .env; then
+            sed -i -E 's/@127\.0\.0\.1([:/])/@db\1/g; s/@localhost([:/])/@db\1/g' .env || true
+            # Ensure default port :3306 is present after @db when missing
+            sed -i -E 's@(mysql\+aiomysql://[^@]+@db)(/[^?]*)@\1:3306\2@g' .env || true
+        else
+            DB_NAME="${MYSQL_DATABASE:-vpn_bot}"; DB_USER="${MYSQL_USER:-vpn_user}"; DB_PASS="${MYSQL_PASSWORD:-vpn_pass}"
+            echo "DATABASE_URL=mysql+aiomysql://$DB_USER:$DB_PASS@db:3306/$DB_NAME?charset=utf8mb4" >> .env
         fi
+        # Ensure Redis URL points to docker service name
+        if grep -qE '^REDIS_URL=' .env; then
+            sed -i -E 's#^REDIS_URL=.*#REDIS_URL=redis://redis:6379/0#g' .env || true
+        else
+            echo "REDIS_URL=redis://redis:6379/0" >> .env
+        fi
+        log_success ".env normalized for Docker"
+        return
     fi
     
     # Get user input for configuration
