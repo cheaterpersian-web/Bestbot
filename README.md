@@ -215,10 +215,19 @@ The bot supports multiple VPN panel types:
 ### Production Deployment
 1. Set up a VPS with Docker support
 2. Configure environment variables
-3. Set up SSL certificates
-4. Configure reverse proxy (nginx)
+3. Point your domain DNS A/AAAA to your server IP
+4. Run the HTTPS stack with Caddy reverse proxy
 5. Set up monitoring and logging
 6. Configure backup strategy
+
+#### One-command HTTPS deploy
+```bash
+cp .env.example .env
+# edit .env and set DOMAIN, EMAIL, BOT_TOKEN, WEBAPP_URL
+bash scripts/deploy.sh
+```
+
+This will start Postgres, API, Bot, and Caddy. Caddy will automatically obtain/renew Let's Encrypt certificates for `DOMAIN` and proxy HTTPS → API.
 
 ### Monitoring
 - Health checks for all services
