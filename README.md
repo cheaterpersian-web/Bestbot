@@ -256,7 +256,7 @@ For support and questions:
 - Multi-panel support
 
 ### Future Roadmap
-- Telegram Mini App interface
+- Telegram Mini App interface (now included at `/`)
 - Advanced analytics dashboard
 - Automated backup system
 - Multi-language support
@@ -265,3 +265,21 @@ For support and questions:
 ---
 
 **Note**: This bot is designed for legitimate VPN service providers. Please ensure compliance with local laws and regulations in your jurisdiction.
+
+## 📱 Telegram Mini App (WebApp)
+
+The project includes a Telegram Mini App that users can open inside Telegram to manage their VPN services.
+
+- Entry route: `/` serves `app/webapp/static/index.html`
+- Static assets: `/static/*` from `app/webapp/static`
+- Backend API for WebApp: `app/webapp/api.py` under `/api/*`
+
+### Activation Steps
+1. Set environment variables in `.env`:
+   - `BOT_TOKEN=...` from BotFather
+   - `WEBAPP_URL=https://your.domain` (public HTTPS URL)
+2. Deploy API to a public HTTPS domain and ensure it serves the root page.
+3. Start the bot service. Users can type `/webapp` or `/app` to get a button that opens the Mini App (handled by `app/bot/routers/webapp_entry.py`).
+4. Optional: In BotFather, set a persistent menu button with your WebApp URL.
+
+The frontend sends `Authorization: Bearer <initData>` and the backend verifies it according to Telegram's HMAC rules in `verify_telegram_auth`.

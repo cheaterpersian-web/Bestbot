@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, FileResponse
 
 from core.config import settings
 from core.db import init_db_schema
@@ -28,6 +29,11 @@ async def _startup():
         await init_db_schema()
     except Exception:
         pass
+
+# Serve WebApp index at root
+@app.get("/", response_class=HTMLResponse)
+async def root_index():
+    return FileResponse("app/webapp/static/index.html")
 
 # Include WebApp API router
 try:

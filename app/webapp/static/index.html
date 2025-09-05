@@ -27,12 +27,15 @@
         }
 
         .navbar {
-            background-color: var(--tg-theme-button-color);
+            background: linear-gradient(90deg, var(--tg-theme-button-color), #1e6fb5);
             color: var(--tg-theme-button-text-color);
             padding: 1rem;
             text-align: center;
             font-weight: bold;
             font-size: 1.2rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         .card {
@@ -40,7 +43,7 @@
             border: none;
             border-radius: 12px;
             margin: 1rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
         }
 
         .card-header {
@@ -53,7 +56,9 @@
         .btn-primary {
             background-color: var(--tg-theme-button-color);
             border-color: var(--tg-theme-button-color);
-            border-radius: 8px;
+            border-radius: 10px;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
         }
 
         .btn-primary:hover {
@@ -64,25 +69,27 @@
         .service-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 1rem;
-            margin: 0.5rem 0;
+            margin: 0.5rem 1rem;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
         }
+        .service-card:active { transform: scale(0.99); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
 
         .wallet-card {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 1rem;
-            margin: 0.5rem 0;
+            margin: 0.5rem 1rem;
         }
 
         .stats-card {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: white;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 1rem;
-            margin: 0.5rem 0;
+            margin: 0.5rem 1rem;
         }
 
         .loading {

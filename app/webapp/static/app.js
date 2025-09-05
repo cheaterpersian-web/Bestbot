@@ -420,6 +420,36 @@ async function processTopUp() {
     }
 }
 
+async function renewService() {
+    try {
+        const modalBody = document.getElementById('service-modal-body');
+        const idMatch = modalBody.innerHTML.match(/شناسه سرویس:<\/strong><br>\s*(\d+)/);
+        if (!idMatch) {
+            showError('شناسه سرویس یافت نشد');
+            return;
+        }
+        const serviceId = idMatch[1];
+        const response = await fetch(`/api/service/${serviceId}/renew`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${tg.initData}`
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            showSuccess('سرویس با موفقیت تمدید شد');
+            loadUserServices();
+            loadUserStats();
+        } else {
+            const error = await response.json();
+            showError(error.detail || error.message || 'خطا در تمدید سرویس');
+        }
+    } catch (e) {
+        console.error('Error renewing service:', e);
+        showError('خطا در تمدید سرویس');
+    }
+}
+
 function showReferral() {
     const referralLink = `https://t.me/${tg.initDataUnsafe.user.username || 'bot'}_bot?start=ref_${user.id}`;
     
