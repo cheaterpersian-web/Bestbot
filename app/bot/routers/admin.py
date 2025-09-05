@@ -659,3 +659,316 @@ async def cb_user_stats(callback: CallbackQuery):
     await callback.message.answer(stats_text)
 
 
+# Additional Admin Features
+@router.message(Command("admin_commands"))
+async def admin_commands_help(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    commands_text = """
+🔧 دستورات ادمین:
+
+📊 مدیریت کاربران:
+• /admin - پنل ادمین
+• /user_info <user_id> - اطلاعات کاربر
+• /block_user <user_id> - مسدود کردن کاربر
+• /unblock_user <user_id> - رفع مسدودیت کاربر
+
+💰 مدیریت مالی:
+• /wallet_adjust <user_id> <amount> - تنظیم موجودی کیف پول
+• /transaction_stats - آمار تراکنش‌ها
+• /pending_transactions - تراکنش‌های در انتظار
+
+🖥️ مدیریت سرورها:
+• /add_server - اضافه کردن سرور
+• /list_servers - لیست سرورها
+• /server_status - وضعیت سرورها
+
+📦 مدیریت پلن‌ها:
+• /add_plan - اضافه کردن پلن
+• /list_plans - لیست پلن‌ها
+• /plan_stats - آمار پلن‌ها
+
+🎁 سیستم هدیه:
+• /gift_wallet <user_id> <amount> - هدیه موجودی
+• /gift_traffic <user_id> <gb> - هدیه ترافیک
+• /bulk_gift - هدیه گروهی
+
+🎫 مدیریت تیکت‌ها:
+• /ticket_list - لیست تیکت‌ها
+• /ticket_reply <ticket_id> - پاسخ به تیکت
+
+📢 پیام‌رسانی:
+• /broadcast - ارسال پیام همگانی
+• /broadcast_image - ارسال تصویر همگانی
+
+🔧 تنظیمات:
+• /bot_settings - تنظیمات ربات
+• /payment_settings - تنظیمات پرداخت
+• /trial_config - تنظیمات تست
+
+📊 گزارش‌گیری:
+• /daily_report - گزارش روزانه
+• /weekly_report - گزارش هفتگی
+• /monthly_report - گزارش ماهانه
+• /user_analytics - آمار کاربران
+
+🎁 کدهای تخفیف:
+• /add_discount - اضافه کردن کد تخفیف
+• /list_discounts - لیست کدهای تخفیف
+• /discount_stats - آمار کدهای تخفیف
+
+🤝 نمایندگان:
+• /reseller_requests - درخواست‌های نمایندگی
+• /list_resellers - لیست نمایندگان
+• /reseller_stats - آمار نمایندگان
+
+🧪 سیستم تست:
+• /trial_requests - درخواست‌های تست
+• /trial_config - تنظیمات تست
+
+🔗 دکمه‌ها:
+• /add_button - اضافه کردن دکمه
+• /list_buttons - لیست دکمه‌ها
+• /toggle_button - تغییر وضعیت دکمه
+"""
+    
+    await message.answer(commands_text)
+
+
+@router.message(Command("daily_report"))
+async def daily_report(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select, func
+        from datetime import datetime, timedelta
+        
+        today = datetime.utcnow().date()
+        yesterday = today - timedelta(days=1)
+        
+        # Daily statistics
+        new_users = (await session.execute(
+            select(func.count(TelegramUser.id))
+            .where(TelegramUser.created_at >= yesterday)
+        )).scalar()
+        
+        new_services = (await session.execute(
+            select(func.count(Service.id))
+            .where(Service.purchased_at >= yesterday)
+        )).scalar()
+        
+        daily_revenue = (await session.execute(
+            select(func.sum(Transaction.amount))
+            .where(Transaction.status == "approved")
+            .where(Transaction.created_at >= yesterday)
+        )).scalar() or 0
+        
+        pending_transactions = (await session.execute(
+            select(func.count(Transaction.id))
+            .where(Transaction.status == "pending")
+        )).scalar()
+        
+        active_services = (await session.execute(
+            select(func.count(Service.id))
+            .where(Service.is_active == True)
+        )).scalar()
+        
+        expired_services = (await session.execute(
+            select(func.count(Service.id))
+            .where(Service.expires_at < datetime.utcnow())
+            .where(Service.is_active == True)
+        )).scalar()
+    
+    report_text = f"""
+📊 گزارش روزانه - {today.strftime('%Y/%m/%d')}
+
+👥 کاربران جدید: {new_users}
+🆕 سرویس‌های جدید: {new_services}
+💰 درآمد روزانه: {daily_revenue:,.0f} تومان
+⏳ تراکنش‌های در انتظار: {pending_transactions}
+✅ سرویس‌های فعال: {active_services}
+❌ سرویس‌های منقضی: {expired_services}
+
+📈 وضعیت کلی:
+• رشد کاربران: {'📈' if new_users > 0 else '📉'}
+• رشد درآمد: {'📈' if daily_revenue > 0 else '📉'}
+• نیاز به بررسی: {'⚠️' if pending_transactions > 0 else '✅'}
+"""
+    
+    await message.answer(report_text)
+
+
+@router.message(Command("user_analytics"))
+async def user_analytics(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select, func
+        from datetime import datetime, timedelta
+        
+        # User analytics
+        total_users = (await session.execute(
+            select(func.count(TelegramUser.id))
+        )).scalar()
+        
+        active_users = (await session.execute(
+            select(func.count(TelegramUser.id))
+            .where(TelegramUser.last_seen_at >= datetime.utcnow() - timedelta(days=7))
+        )).scalar()
+        
+        verified_users = (await session.execute(
+            select(func.count(TelegramUser.id))
+            .where(TelegramUser.is_verified == True)
+        )).scalar()
+        
+        blocked_users = (await session.execute(
+            select(func.count(TelegramUser.id))
+            .where(TelegramUser.is_blocked == True)
+        )).scalar()
+        
+        users_with_services = (await session.execute(
+            select(func.count(func.distinct(Service.user_id)))
+        )).scalar()
+        
+        avg_wallet_balance = (await session.execute(
+            select(func.avg(TelegramUser.wallet_balance))
+        )).scalar() or 0
+        
+        total_spent = (await session.execute(
+            select(func.sum(TelegramUser.total_spent))
+        )).scalar() or 0
+    
+    analytics_text = f"""
+📊 آمار کاربران:
+
+👥 کل کاربران: {total_users:,}
+✅ کاربران فعال (7 روز): {active_users:,}
+🔐 کاربران تایید شده: {verified_users:,}
+🚫 کاربران مسدود: {blocked_users:,}
+🛒 کاربران با سرویس: {users_with_services:,}
+
+💰 آمار مالی:
+• میانگین موجودی: {avg_wallet_balance:,.0f} تومان
+• کل خریدها: {total_spent:,.0f} تومان
+• میانگین خرید: {total_spent / max(users_with_services, 1):,.0f} تومان
+
+📈 نرخ‌ها:
+• نرخ فعال بودن: {(active_users / max(total_users, 1) * 100):.1f}%
+• نرخ تایید: {(verified_users / max(total_users, 1) * 100):.1f}%
+• نرخ خرید: {(users_with_services / max(total_users, 1) * 100):.1f}%
+"""
+    
+    await message.answer(analytics_text)
+
+
+@router.message(Command("server_status"))
+async def server_status(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        
+        servers = (await session.execute(
+            select(Server).order_by(Server.sort_order)
+        )).scalars().all()
+    
+    if not servers:
+        await message.answer("سروری ثبت نشده است.")
+        return
+    
+    status_text = "🖥️ وضعیت سرورها:\n\n"
+    
+    for server in servers:
+        status_emoji = "✅" if server.is_active else "❌"
+        sync_emoji = {
+            "success": "✅",
+            "error": "❌",
+            "syncing": "🔄",
+            "unknown": "❓"
+        }.get(server.sync_status, "❓")
+        
+        connections_info = f"{server.current_connections}"
+        if server.max_connections:
+            connections_info += f"/{server.max_connections}"
+        
+        status_text += f"{status_emoji} {server.name}\n"
+        status_text += f"   نوع: {server.panel_type}\n"
+        status_text += f"   اتصالات: {connections_info}\n"
+        status_text += f"   همگام‌سازی: {sync_emoji} {server.sync_status}\n"
+        if server.last_sync_at:
+            status_text += f"   آخرین همگام‌سازی: {server.last_sync_at.strftime('%m/%d %H:%M')}\n"
+        if server.error_message:
+            status_text += f"   خطا: {server.error_message[:50]}...\n"
+        status_text += "\n"
+    
+    await message.answer(status_text)
+
+
+@router.message(Command("plan_stats"))
+async def plan_stats(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select, func
+        
+        # Plan statistics
+        total_plans = (await session.execute(
+            select(func.count(Plan.id))
+        )).scalar()
+        
+        active_plans = (await session.execute(
+            select(func.count(Plan.id))
+            .where(Plan.is_active == True)
+        )).scalar()
+        
+        popular_plans = (await session.execute(
+            select(func.count(Plan.id))
+            .where(Plan.is_popular == True)
+        )).scalar()
+        
+        recommended_plans = (await session.execute(
+            select(func.count(Plan.id))
+            .where(Plan.is_recommended == True)
+        )).scalar()
+        
+        # Top selling plans
+        top_plans = (await session.execute(
+            select(Plan.title, Plan.sales_count)
+            .order_by(Plan.sales_count.desc())
+            .limit(5)
+        )).all()
+        
+        # Average price
+        avg_price = (await session.execute(
+            select(func.avg(Plan.price_irr))
+        )).scalar() or 0
+    
+    stats_text = f"""
+📦 آمار پلن‌ها:
+
+📊 کلی:
+• کل پلن‌ها: {total_plans}
+• پلن‌های فعال: {active_plans}
+• پلن‌های محبوب: {popular_plans}
+• پلن‌های پیشنهادی: {recommended_plans}
+• میانگین قیمت: {avg_price:,.0f} تومان
+
+🏆 پرفروش‌ترین پلن‌ها:
+"""
+    
+    for i, (title, sales) in enumerate(top_plans, 1):
+        stats_text += f"{i}. {title}: {sales} فروش\n"
+    
+    await message.answer(stats_text)
+
+

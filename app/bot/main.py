@@ -28,6 +28,20 @@ from .routers import tickets as tickets_router
 from .routers import other as other_router
 from .routers import lookup as lookup_router
 from .routers import referrals as referrals_router
+from .routers import discounts as discounts_router
+from .routers import resellers as resellers_router
+from .routers import payment_gateways as payment_gateways_router
+from .routers import trial_system as trial_system_router
+from .routers import smart_discounts as smart_discounts_router
+from .routers import crm as crm_router
+from .routers import backup as backup_router
+from .routers import notifications as notifications_router
+from .routers import advanced_reseller as advanced_reseller_router
+from .routers import anti_fraud as anti_fraud_router
+from .routers import financial_reports as financial_reports_router
+from .routers import scheduled_messages as scheduled_messages_router
+from .routers import refund_system as refund_system_router
+from .webapp import api as webapp_router
 
 
 router = Router()
@@ -111,6 +125,20 @@ async def main() -> None:
     dp.include_router(other_router.router)
     dp.include_router(lookup_router.router)
     dp.include_router(referrals_router.router)
+    dp.include_router(discounts_router.router)
+    dp.include_router(resellers_router.router)
+    dp.include_router(payment_gateways_router.router)
+    dp.include_router(trial_system_router.router)
+    dp.include_router(smart_discounts_router.router)
+    dp.include_router(crm_router.router)
+    dp.include_router(backup_router.router)
+    dp.include_router(notifications_router.router)
+    dp.include_router(advanced_reseller_router.router)
+    dp.include_router(anti_fraud_router.router)
+    dp.include_router(financial_reports_router.router)
+    dp.include_router(scheduled_messages_router.router)
+    dp.include_router(refund_system_router.router)
+    dp.include_router(webapp_router.router)
 
     bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
     await bot.delete_webhook(drop_pending_updates=True)

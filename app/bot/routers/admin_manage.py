@@ -7,6 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from core.config import settings
 from core.db import get_db_session
 from models.catalog import Server, Category, Plan
+from models.admin import Button
 from bot.inline import admin_manage_servers_kb
 from models.user import TelegramUser
 
@@ -777,4 +778,209 @@ async def list_plans(message: Message):
             meta.append(f"{int(p.traffic_gb)}گیگ")
         out.append(f"#{p.id} - {p.title} - {int(p.price_irr):,} ({'،'.join(meta) or 'بدون مشخصه'})")
     await message.answer("\n".join(out))
+
+
+# Button Management System
+class AddButtonStates(StatesGroup):
+    waiting_key = State()
+    waiting_title = State()
+    waiting_type = State()
+    waiting_content = State()
+
+
+@router.message(Command("add_button"))
+async def add_button_start(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    await message.answer("کلید دکمه را وارد کنید (مثال: price_list)")
+    await state.set_state(AddButtonStates.waiting_key)
+
+
+@router.message(AddButtonStates.waiting_key)
+async def add_button_key(message: Message, state: FSMContext):
+    key = message.text.strip().lower()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        existing = (await session.execute(select(Button).where(Button.key == key))).scalar_one_or_none()
+        if existing:
+            await message.answer("این کلید قبلاً استفاده شده است. کلید دیگری انتخاب کنید.")
+            return
+    await state.update_data(key=key)
+    await message.answer("عنوان دکمه را وارد کنید (مثال: لیست قیمت‌ها)")
+    await state.set_state(AddButtonStates.waiting_title)
+
+
+@router.message(AddButtonStates.waiting_title)
+async def add_button_title(message: Message, state: FSMContext):
+    await state.update_data(title=message.text.strip())
+    await message.answer("نوع دکمه را انتخاب کنید:\n1. link - لینک\n2. text - متن\n3. image - تصویر")
+    await state.set_state(AddButtonStates.waiting_type)
+
+
+@router.message(AddButtonStates.waiting_type)
+async def add_button_type(message: Message, state: FSMContext):
+    button_type = message.text.strip().lower()
+    if button_type not in ["link", "text", "image", "1", "2", "3"]:
+        await message.answer("نوع نامعتبر است. یکی از link، text یا image انتخاب کنید.")
+        return
+    
+    # Convert numbers to types
+    type_map = {"1": "link", "2": "text", "3": "image"}
+    button_type = type_map.get(button_type, button_type)
+    
+    await state.update_data(type=button_type)
+    
+    if button_type == "link":
+        await message.answer("لینک را وارد کنید (مثال: https://example.com)")
+    elif button_type == "text":
+        await message.answer("متن را وارد کنید")
+    else:  # image
+        await message.answer("تصویر را ارسال کنید")
+    
+    await state.set_state(AddButtonStates.waiting_content)
+
+
+@router.message(AddButtonStates.waiting_content)
+async def add_button_content(message: Message, state: FSMContext):
+    data = await state.get_data()
+    button_type = data["type"]
+    
+    if button_type == "image":
+        if not message.photo:
+            await message.answer("لطفاً یک تصویر ارسال کنید.")
+            return
+        content = message.photo[-1].file_id  # Get highest resolution
+    else:
+        content = message.text.strip()
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        # Get next sort order
+        max_order = (await session.execute(select(Button.sort_order).order_by(Button.sort_order.desc()).limit(1))).scalar_one_or_none()
+        next_order = (max_order or 0) + 1
+        
+        button = Button(
+            key=data["key"],
+            title=data["title"],
+            type=button_type,
+            content=content,
+            is_active=True,
+            sort_order=next_order
+        )
+        session.add(button)
+    
+    await state.clear()
+    await message.answer("دکمه با موفقیت اضافه شد.")
+
+
+@router.message(Command("list_buttons"))
+async def list_buttons(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        buttons = (await session.execute(select(Button).order_by(Button.sort_order))).scalars().all()
+    
+    if not buttons:
+        await message.answer("دکمه‌ای ثبت نشده است.")
+        return
+    
+    out = []
+    for b in buttons:
+        status = "✅" if b.is_active else "❌"
+        content_preview = b.content[:30] + "..." if len(b.content) > 30 else b.content
+        out.append(f"{status} #{b.id} - {b.key} - {b.title} ({b.type})\n   محتوا: {content_preview}")
+    
+    await message.answer("\n\n".join(out))
+
+
+@router.message(Command("toggle_button"))
+async def toggle_button_start(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        buttons = (await session.execute(select(Button).order_by(Button.sort_order))).scalars().all()
+    
+    if not buttons:
+        await message.answer("دکمه‌ای ثبت نشده است.")
+        return
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"{'✅' if b.is_active else '❌'} {b.title}", callback_data=f"toggle_button:{b.id}")]
+        for b in buttons
+    ])
+    
+    await message.answer("دکمه‌ای را برای تغییر وضعیت انتخاب کنید:", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("toggle_button:"))
+async def toggle_button_callback(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("دسترسی ندارید")
+        return
+    
+    button_id = int(callback.data.split(":")[1])
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        button = (await session.execute(select(Button).where(Button.id == button_id))).scalar_one_or_none()
+        if not button:
+            await callback.answer("دکمه یافت نشد")
+            return
+        
+        button.is_active = not button.is_active
+    
+    await callback.answer(f"وضعیت دکمه {'فعال' if button.is_active else 'غیرفعال'} شد")
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+
+@router.message(Command("delete_button"))
+async def delete_button_start(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("دسترسی ندارید")
+        return
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        buttons = (await session.execute(select(Button).order_by(Button.sort_order))).scalars().all()
+    
+    if not buttons:
+        await message.answer("دکمه‌ای ثبت نشده است.")
+        return
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"🗑️ {b.title}", callback_data=f"delete_button:{b.id}")]
+        for b in buttons
+    ])
+    
+    await message.answer("دکمه‌ای را برای حذف انتخاب کنید:", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("delete_button:"))
+async def delete_button_callback(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("دسترسی ندارید")
+        return
+    
+    button_id = int(callback.data.split(":")[1])
+    
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        button = (await session.execute(select(Button).where(Button.id == button_id))).scalar_one_or_none()
+        if not button:
+            await callback.answer("دکمه یافت نشد")
+            return
+        
+        await session.delete(button)
+    
+    await callback.answer("دکمه حذف شد")
+    await callback.message.edit_reply_markup(reply_markup=None)
 
