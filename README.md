@@ -109,7 +109,17 @@ SUPPORT_CHANNEL=@your_support_channel
 docker-compose up -d
 ```
 
-### 4. Manual Setup (Alternative)
+### 4. Native Install (No Docker, recommended if Docker Hub is blocked)
+If Docker images cannot be pulled due to geo-restrictions, install natively:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cheaterpersian-web/Bestbot/HEAD/scripts/install-native.sh -o install-native.sh
+sudo bash install-native.sh
+```
+
+This will install MariaDB, Redis, a Python virtualenv, create `.env`, install systemd services (`vpn-bot-api`, `vpn-bot-worker`), and configure Nginx on port 80.
+
+### 5. Manual Setup (Alternative)
 ```bash
 # Install dependencies
 pip install -r app/requirements.txt
