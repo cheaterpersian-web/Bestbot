@@ -144,21 +144,21 @@ install_docker() {
 clone_repository() {
     log_info "Cloning VPN Telegram Bot repository..."
     
-    if [ -d "vpn-telegram-bot" ]; then
-        log_warning "Directory 'vpn-telegram-bot' already exists"
+    if [ -d "Bestbot" ]; then
+        log_warning "Directory 'Bestbot' already exists"
         read -p "Do you want to remove it and reinstall? (y/N): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf vpn-telegram-bot
+            rm -rf Bestbot
         else
             log_info "Using existing installation"
-            cd vpn-telegram-bot
+            cd Bestbot
             return
         fi
     fi
     
-    git clone https://github.com/your-repo/vpn-telegram-bot.git
-    cd vpn-telegram-bot
+    git clone https://github.com/cheaterpersian-web/Bestbot.git
+    cd Bestbot
     
     log_success "Repository cloned successfully"
 }

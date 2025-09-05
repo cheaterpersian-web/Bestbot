@@ -117,8 +117,8 @@ docker-compose --version
 
 ```bash
 # کلون کردن مخزن
-git clone https://github.com/your-repo/vpn-telegram-bot.git
-cd vpn-telegram-bot
+git clone https://github.com/cheaterpersian-web/Bestbot.git
+cd Bestbot
 ```
 
 ### مرحله 4: ایجاد فایل تنظیمات / Step 4: Create Configuration File
@@ -383,9 +383,9 @@ docker-compose exec bot python -m alembic upgrade head
 
 ### منابع کمک / Help Resources
 
-- **مستندات**: [GitHub Wiki](https://github.com/your-repo/vpn-telegram-bot/wiki)
-- **Issues**: [GitHub Issues](https://github.com/your-repo/vpn-telegram-bot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-repo/vpn-telegram-bot/discussions)
+- **مستندات**: [GitHub Wiki](https://github.com/cheaterpersian-web/Bestbot/wiki)
+- **Issues**: [GitHub Issues](https://github.com/cheaterpersian-web/Bestbot/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/cheaterpersian-web/Bestbot/discussions)
 
 ### گزارش باگ / Bug Reports
 
