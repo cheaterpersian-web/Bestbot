@@ -7,10 +7,9 @@ CREATE DATABASE IF NOT EXISTS vpn_bot CHARACTER SET utf8mb4 COLLATE utf8mb4_unic
 -- Use the database
 USE vpn_bot;
 
--- Create user if not exists
-CREATE USER IF NOT EXISTS 'vpn_user'@'%' IDENTIFIED BY 'vpn_pass';
-GRANT ALL PRIVILEGES ON vpn_bot.* TO 'vpn_user'@'%';
-FLUSH PRIVILEGES;
+-- NOTE: User and password are created by official MySQL image using
+-- MYSQL_USER / MYSQL_PASSWORD env vars. Avoid overriding here to prevent
+-- password mismatches with the application .env.
 
 -- Set timezone
 SET time_zone = '+00:00';
@@ -27,8 +26,7 @@ SET time_zone = '+00:00';
 -- Set MySQL configuration for better performance
 SET GLOBAL innodb_buffer_pool_size = 256M;
 SET GLOBAL max_connections = 200;
-SET GLOBAL query_cache_size = 32M;
-SET GLOBAL query_cache_type = 1;
+-- Query cache has been removed in MySQL 8.x; skip deprecated settings.
 
 -- Create backup user for automated backups
 CREATE USER IF NOT EXISTS 'backup_user'@'%' IDENTIFIED BY 'backup_pass';

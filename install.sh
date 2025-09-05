@@ -379,7 +379,12 @@ start_services() {
     
     # Resolve compose command and clean old state (avoids 'ContainerConfig' errors in compose v1)
     set_compose_cmd
-    $COMPOSE_CMD down --remove-orphans || true
+    if [[ "${FORCE_DB_RESET:-0}" == "1" ]]; then
+        log_warning "FORCE_DB_RESET=1 detected: removing containers AND volumes (db will be re-initialized)"
+        $COMPOSE_CMD down -v --remove-orphans || true
+    else
+        $COMPOSE_CMD down --remove-orphans || true
+    fi
     
     # Pull latest images
     $COMPOSE_CMD pull
