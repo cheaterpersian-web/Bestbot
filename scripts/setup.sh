@@ -47,6 +47,9 @@ APP_ENV=${APP_ENV:-production}
 read -rp "Log level (LOG_LEVEL) [INFO]: " LOG_LEVEL || true
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 
+read -rp "Public WebApp URL (HTTPS, e.g. https://yourdomain.com/api/) [skip]: " WEBAPP_URL || true
+WEBAPP_URL=${WEBAPP_URL:-}
+
 read -rp "Run docker compose up -d --build now? [Y/n]: " RUN_NOW || true
 RUN_NOW=${RUN_NOW:-Y}
 
@@ -68,6 +71,7 @@ DATABASE_URL=${DATABASE_URL}
 # App
 APP_ENV=${APP_ENV}
 LOG_LEVEL=${LOG_LEVEL}
+WEBAPP_URL=${WEBAPP_URL}
 ENV
 
 echo "===> .env created"

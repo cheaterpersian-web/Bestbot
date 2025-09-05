@@ -89,6 +89,8 @@ class Settings(BaseSettings):
     status_url: str = ""
     uptime_robot_api_key: str = ""
     support_channel: str = ""
+    # WebApp
+    webapp_url: str = Field(default="", validation_alias=AliasChoices("WEBAPP_URL", "webapp_url"))
 
 
 @lru_cache

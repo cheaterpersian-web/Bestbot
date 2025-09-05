@@ -8,6 +8,8 @@ import urllib.parse
 from datetime import datetime
 
 from core.db import get_db_session
+from core.config import settings
+from sqlalchemy import and_
 from models.user import TelegramUser
 from models.service import Service
 from models.catalog import Server, Category, Plan
@@ -26,33 +28,38 @@ def verify_telegram_auth(authorization: str = Header(None)) -> dict:
     init_data = authorization[7:]  # Remove "Bearer " prefix
     
     try:
-        # Parse init data
-        parsed_data = urllib.parse.parse_qs(init_data)
-        
-        # Verify hash
-        bot_token = "YOUR_BOT_TOKEN"  # Replace with actual bot token
+        # Parse init data into ordered list
+        kv_pairs = urllib.parse.parse_qsl(init_data, keep_blank_values=True)
+        data_check_pairs: list[str] = []
+        provided_hash: Optional[str] = None
+        for key, value in kv_pairs:
+            if key == "hash":
+                provided_hash = value
+            else:
+                data_check_pairs.append(f"{key}={value}")
+        data_check_pairs.sort()
+        data_check_string = "\n".join(data_check_pairs)
+
+        # Build secret key per Telegram docs
         secret_key = hmac.new(
             "WebAppData".encode(),
-            bot_token.encode(),
-            hashlib.sha256
+            settings.bot_token.encode(),
+            hashlib.sha256,
         ).digest()
-        
-        # Check hash
-        data_check_string = init_data.replace(f"&hash={parsed_data.get('hash', [''])[0]}", "")
         calculated_hash = hmac.new(
             secret_key,
             data_check_string.encode(),
-            hashlib.sha256
+            hashlib.sha256,
         ).hexdigest()
-        
-        if calculated_hash != parsed_data.get('hash', [''])[0]:
+
+        if not provided_hash or calculated_hash != provided_hash:
             raise HTTPException(status_code=401, detail="Invalid hash")
-        
+
         # Parse user data
-        user_data = json.loads(parsed_data.get('user', ['{}'])[0])
+        user_data_str = dict(kv_pairs).get("user", "{}")
+        user_data = json.loads(user_data_str)
         return user_data
-    
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid init data")
 
 
