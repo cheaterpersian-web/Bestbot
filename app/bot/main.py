@@ -41,6 +41,7 @@ from .routers import advanced_reseller as advanced_reseller_router
 from .routers import anti_fraud as anti_fraud_router
 from .routers import financial_reports as financial_reports_router
 from .routers import scheduled_messages as scheduled_messages_router
+from .routers import webapp_entry as webapp_entry_router
 from .routers import refund_system as refund_system_router
 
 
@@ -102,6 +103,13 @@ async def placeholder_menu_handler(message: Message):
 
 
 async def main() -> None:
+    # Debug log sanitized token last 4 chars
+    try:
+        tail = settings.bot_token[-4:] if settings.bot_token else ""
+        print(f"[bot] bot_token present: {'yes' if settings.bot_token else 'no'} tail=****{tail}")
+    except Exception:
+        pass
+
     if not settings.bot_token or settings.bot_token == "your_telegram_bot_token_here":
         print("BOT_TOKEN تنظیم نشده است. لطفاً مقدار صحیح را در فایل .env قرار دهید.")
         return
@@ -137,6 +145,7 @@ async def main() -> None:
     dp.include_router(anti_fraud_router.router)
     dp.include_router(financial_reports_router.router)
     dp.include_router(scheduled_messages_router.router)
+    dp.include_router(webapp_entry_router.router)
     dp.include_router(refund_system_router.router)
 
     bot = Bot(token=settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))

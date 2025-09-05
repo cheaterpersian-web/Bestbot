@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg62-turbo-dev \
     zlib1g-dev \
     postgresql-client \
+    mariadb-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
