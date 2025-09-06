@@ -631,15 +631,11 @@ function refreshServices() {
 }
 
 function switchToBuyTab() {
-    const buyTab = document.getElementById('buy-tab');
-    buyTab.click();
     setActiveBottom('buy');
     showPage('buy');
 }
 
 function switchToServicesTab() {
-    const servicesTab = document.getElementById('services-tab');
-    servicesTab.click();
     setActiveBottom('services');
     showPage('services');
 }
