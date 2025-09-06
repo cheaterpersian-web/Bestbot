@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tg.onEvent) {
         tg.onEvent('themeChanged', applyThemeFromTelegram);
     }
+
+    // Render Lucide outline icons
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
 });
 
 function setupEventListeners() {
@@ -146,10 +149,10 @@ function displayServices() {
     if (services.length === 0) {
         servicesList.innerHTML = `
             <div class="text-center py-4">
-                <i class="fas fa-server fa-3x text-muted mb-3"></i>
+                <img class="empty-illustration mb-3" src="https://illustrations.popsy.co/gray/monitor.svg" alt="empty" width="120" height="120"/>
                 <p class="text-muted">هیچ سرویس فعالی ندارید</p>
                 <button class="btn btn-primary" onclick="switchToBuyTab()">
-                    <i class="fas fa-shopping-cart"></i> خرید سرویس جدید
+                    <i data-lucide="shopping-cart"></i> خرید سرویس جدید
                 </button>
             </div>
         `;
@@ -171,9 +174,9 @@ function displayServices() {
         serviceCard.innerHTML = `
             <div class="row align-items-center">
                 <div class="col-8">
-                    <h6 class="mb-1"><i class="fas fa-server"></i> ${service.remark || 'سرویس VPN'}</h6>
+                    <h6 class="mb-1"><i data-lucide="server"></i> ${service.remark || 'سرویس VPN'}</h6>
                     <div class="mb-1" style="color: var(--color-muted)">
-                        <small><i class="fas fa-calendar"></i> انقضا: ${exp}</small>
+                        <small><i data-lucide="calendar"></i> انقضا: ${exp}</small>
                     </div>
                     <div class="progress" style="height: 8px; background: rgba(255,255,255,0.08);">
                         <div class="progress-bar" role="progressbar" style="width: ${percent}%; background: var(--color-primary);" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -187,13 +190,13 @@ function displayServices() {
                     <span class="status-badge ${statusClass}">${statusText}</span>
                     <div class="mt-2 d-flex gap-1 justify-content-end">
                         <button title="جزئیات" class="btn btn-light btn-sm" onclick="showServiceDetails(${service.id})">
-                            <i class="fas fa-eye"></i>
+                            <i data-lucide="eye"></i>
                         </button>
                         <button title="کپی کانفیگ" class="btn btn-light btn-sm" onclick="quickCopy(${service.id})">
-                            <i class="fas fa-copy"></i>
+                            <i data-lucide="copy"></i>
                         </button>
                         <button title="تمدید سریع" class="btn btn-light btn-sm" onclick="quickRenew(${service.id})">
-                            <i class="fas fa-rotate"></i>
+                            <i data-lucide="rotate-ccw"></i>
                         </button>
                     </div>
                 </div>

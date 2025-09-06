@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ربات VPN - پنل کاربری</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -102,22 +103,26 @@
         .service-card:active { transform: scale(0.99); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
 
         .wallet-card {
-            background-color: var(--color-surface);
-            color: var(--color-text);
+            background: linear-gradient(135deg, rgba(20,184,166,0.35), rgba(14,116,144,0.25));
+            color: var(--color-primary-text);
             border-radius: 16px;
             padding: 1rem;
             margin: 0.5rem 1rem;
-            border: 1px solid rgba(148,163,184,0.15);
+            border: 1px solid rgba(20,184,166,0.3);
         }
+        .wallet-amount { font-weight: 700; font-size: 1.8rem; }
 
-        .stats-card {
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 8px 16px; }
+        .stat-mini {
             background-color: var(--color-surface);
             color: var(--color-text);
-            border-radius: 16px;
-            padding: 1rem;
-            margin: 0.5rem 1rem;
             border: 1px solid rgba(148,163,184,0.15);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex; align-items: center; gap: 8px;
         }
+        .stat-mini svg { color: var(--color-primary); width: 20px; height: 20px; }
+        .stat-value { font-weight: 700; }
 
         .loading {
             text-align: center;
@@ -261,7 +266,7 @@
 </head>
 <body>
     <div class="navbar">
-        <i class="fas fa-shield-alt"></i> ربات VPN - پنل کاربری
+        <i data-lucide="shield"></i> ربات VPN - پنل کاربری
     </div>
 
     <div id="loading" class="loading">
@@ -303,31 +308,38 @@
         <div class="wallet-card">
             <div class="row">
                 <div class="col-8">
-                    <h5><i class="fas fa-wallet"></i> کیف پول</h5>
-                    <h3 id="wallet-balance">0 تومان</h3>
+                    <h5><i data-lucide="wallet"></i> کیف پول</h5>
+                    <h3 class="wallet-amount" id="wallet-balance">0 تومان</h3>
                 </div>
                 <div class="col-4 text-end">
                     <button class="btn btn-light btn-sm" onclick="showTopUp()">
-                        <i class="fas fa-plus"></i> شارژ
+                        <i data-lucide="plus"></i> شارژ
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Stats Card -->
-        <div class="stats-card">
-            <div class="row text-center">
-                <div class="col-4">
-                    <h6>سرویس‌های فعال</h6>
-                    <h4 id="active-services">0</h4>
+        <!-- Stats Mini Cards -->
+        <div class="stats-grid">
+            <div class="stat-mini">
+                <i data-lucide="activity"></i>
+                <div>
+                    <div class="stat-value" id="active-services">0</div>
+                    <small class="text-muted">سرویس‌های فعال</small>
                 </div>
-                <div class="col-4">
-                    <h6>کل خریدها</h6>
-                    <h4 id="total-purchases">0</h4>
+            </div>
+            <div class="stat-mini">
+                <i data-lucide="shopping-cart"></i>
+                <div>
+                    <div class="stat-value" id="total-purchases">0</div>
+                    <small class="text-muted">کل خریدها</small>
                 </div>
-                <div class="col-4">
-                    <h6>کل هزینه</h6>
-                    <h4 id="total-spent">0 تومان</h4>
+            </div>
+            <div class="stat-mini">
+                <i data-lucide="banknote"></i>
+                <div>
+                    <div class="stat-value" id="total-spent">0 تومان</div>
+                    <small class="text-muted">کل هزینه</small>
                 </div>
             </div>
         </div>
@@ -336,22 +348,22 @@
         <ul class="nav nav-tabs" id="mainTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="services-tab" data-bs-toggle="tab" data-bs-target="#services" type="button" role="tab">
-                    <i class="fas fa-server"></i> سرویس‌ها
+                    <i data-lucide="server"></i> سرویس‌ها
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="buy-tab" data-bs-toggle="tab" data-bs-target="#buy" type="button" role="tab">
-                    <i class="fas fa-shopping-cart"></i> خرید
+                    <i data-lucide="shopping-cart"></i> خرید
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet" type="button" role="tab">
-                    <i class="fas fa-wallet"></i> کیف پول
+                    <i data-lucide="wallet"></i> کیف پول
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">
-                    <i class="fas fa-user"></i> پروفایل
+                    <i data-lucide="user"></i> پروفایل
                 </button>
             </li>
         </ul>
@@ -368,7 +380,7 @@
                 </div>
                 <div class="text-center mt-3">
                     <button class="btn btn-primary" onclick="refreshServices()">
-                        <i class="fas fa-sync"></i> بروزرسانی
+                        <i data-lucide="refresh-ccw"></i> بروزرسانی
                     </button>
                 </div>
             </div>
