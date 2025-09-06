@@ -84,13 +84,16 @@ function loadUserData() {
     document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name || ''}`.trim();
     document.getElementById('user-username').textContent = user.username ? `@${user.username}` : 'ندارد';
     document.getElementById('user-id').textContent = user.id;
-    document.getElementById('user-join-date').textContent = new Date(user.id * 1000).toLocaleDateString('fa-IR');
+    try {
+        // join date is not provided in Telegram user; show dash by default
+        document.getElementById('user-join-date').textContent = '-';
+    } catch {}
     
     // Profile tab
     document.getElementById('profile-name').value = `${user.first_name} ${user.last_name || ''}`.trim();
     document.getElementById('profile-username').value = user.username ? `@${user.username}` : 'ندارد';
     document.getElementById('profile-id').value = user.id;
-    document.getElementById('profile-join-date').value = new Date(user.id * 1000).toLocaleDateString('fa-IR');
+    document.getElementById('profile-join-date').value = '-';
     
     // Load user stats
     loadUserStats();

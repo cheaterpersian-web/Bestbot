@@ -244,6 +244,11 @@
             background-color: var(--color-surface);
             color: var(--color-text);
         }
+
+        /* Ensure readable text on dark cards */
+        .card .card-body strong { color: var(--color-text) !important; }
+        #user-name, #user-username, #user-id, #user-join-date { color: var(--color-text) !important; }
+        .text-muted { color: var(--color-muted) !important; }
     </style>
 </head>
 <body>
