@@ -614,11 +614,22 @@ function refreshServices() {
 function switchToBuyTab() {
     const buyTab = document.getElementById('buy-tab');
     buyTab.click();
+    setActiveBottom('buy');
 }
 
 function switchToServicesTab() {
     const servicesTab = document.getElementById('services-tab');
     servicesTab.click();
+    setActiveBottom('services');
+}
+
+function setActiveBottom(which) {
+    const items = document.querySelectorAll('.bottom-nav .item');
+    items.forEach((el) => el.classList.remove('active'));
+    if (which === 'services') items[0]?.classList.add('active');
+    if (which === 'buy') items[1]?.classList.add('active');
+    if (which === 'wallet') items[2]?.classList.add('active');
+    if (which === 'profile') items[3]?.classList.add('active');
 }
 
 function showError(message) {
