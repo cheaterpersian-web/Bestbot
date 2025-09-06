@@ -94,6 +94,8 @@ function loadUserData() {
     document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name || ''}`.trim();
     const heroName = document.getElementById('hero-name');
     if (heroName) heroName.textContent = user.first_name || 'کاربر عزیز';
+    const heroNameHome = document.getElementById('hero-name-home');
+    if (heroNameHome) heroNameHome.textContent = user.first_name || 'کاربر عزیز';
     document.getElementById('user-username').textContent = user.username ? `@${user.username}` : 'ندارد';
     document.getElementById('user-id').textContent = user.id;
     try {
@@ -126,6 +128,9 @@ async function loadUserStats() {
             document.getElementById('active-services').textContent = stats.active_services;
             document.getElementById('total-purchases').textContent = stats.total_purchases;
             document.getElementById('total-spent').textContent = `${stats.total_spent.toLocaleString('fa-IR')} تومان`;
+            const ha = document.getElementById('home-active-services'); if (ha) ha.textContent = stats.active_services;
+            const hp = document.getElementById('home-total-purchases'); if (hp) hp.textContent = stats.total_purchases;
+            const hs = document.getElementById('home-total-spent'); if (hs) hs.textContent = `${stats.total_spent.toLocaleString('fa-IR')} تومان`;
         }
     } catch (error) {
         console.error('Error loading user stats:', error);
@@ -642,10 +647,12 @@ function switchToServicesTab() {
 function setActiveBottom(which) {
     const items = document.querySelectorAll('.bottom-nav .item');
     items.forEach((el) => el.classList.remove('active'));
+    // order: services, home(floating), buy, wallet, profile
     if (which === 'services') items[0]?.classList.add('active');
-    if (which === 'buy') items[1]?.classList.add('active');
-    if (which === 'wallet') items[2]?.classList.add('active');
-    if (which === 'profile') items[3]?.classList.add('active');
+    if (which === 'home') items[1]?.classList.add('active');
+    if (which === 'buy') items[2]?.classList.add('active');
+    if (which === 'wallet') items[3]?.classList.add('active');
+    if (which === 'profile') items[4]?.classList.add('active');
 }
 
 function showPage(which) {
@@ -670,7 +677,7 @@ function showPage(which) {
 
 // Initialize default page on load
 document.addEventListener('DOMContentLoaded', () => {
-    showPage('services');
+    showPage('home');
 });
 
 function showError(message) {

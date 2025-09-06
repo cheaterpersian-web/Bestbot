@@ -281,13 +281,14 @@
             padding: 8px 12px calc(env(safe-area-inset-bottom, 0) + 8px);
             z-index: 100;
         }
-        .bottom-nav .wrap { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .bottom-nav .wrap { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .bottom-nav .item {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: var(--color-muted); text-decoration: none; padding: 6px 0; border-radius: 10px;
         }
         .bottom-nav .item .lucide-icon, .bottom-nav .item .fa-fallback { width: 20px; height: 20px; }
         .bottom-nav .item.active { color: var(--color-primary); background: rgba(20,184,166,0.08); }
+        .bottom-nav .item.floating { transform: translateY(-12px); background: var(--color-primary); color: var(--color-primary-text); box-shadow: 0 8px 24px rgba(0,0,0,0.25); border-radius: 16px; padding: 6px 4px; }
 
         /* Hero banner */
         .hero {
@@ -404,6 +405,40 @@
         </div>
 
         <!-- Pages instead of tabs -->
+        <div id="page-home" class="page" style="display:none;">
+            <div class="hero">
+                <h5>سلام، <span id="hero-name-home">کاربر عزیز</span> 👋</h5>
+                <small>پیشنهادها و میانبرهای سریع</small>
+                <div class="actions">
+                    <button class="btn btn-light" onclick="switchToBuyTab()"><i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i> خرید سرویس</button>
+                    <button class="btn btn-light" onclick="switchToServicesTab()"><i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i> سرویس‌های من</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-mini">
+                    <i data-lucide="activity"></i>
+                    <div>
+                        <div class="stat-value" id="home-active-services">0</div>
+                        <small class="text-muted">سرویس‌های فعال</small>
+                    </div>
+                </div>
+                <div class="stat-mini">
+                    <i data-lucide="shopping-cart"></i>
+                    <div>
+                        <div class="stat-value" id="home-total-purchases">0</div>
+                        <small class="text-muted">کل خریدها</small>
+                    </div>
+                </div>
+                <div class="stat-mini">
+                    <i data-lucide="banknote"></i>
+                    <div>
+                        <div class="stat-value" id="home-total-spent">0 تومان</div>
+                        <small class="text-muted">کل هزینه</small>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="page-services" class="page" style="display:none;">
             <div id="services-list">
                 <!-- Services will be loaded here -->
@@ -595,6 +630,10 @@
             <a class="item active" href="#" onclick="switchToServicesTab(); return false;">
                 <i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i>
                 <small>سرویس‌ها</small>
+            </a>
+            <a class="item floating" href="#" onclick="setActiveBottom('home'); showPage('home'); return false;" style="text-align:center;">
+                <i class="fa-solid fa-house fa-fallback"></i><i data-lucide="home"></i>
+                <small>صفحه اصلی</small>
             </a>
             <a class="item" href="#" onclick="switchToBuyTab(); return false;">
                 <i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i>
