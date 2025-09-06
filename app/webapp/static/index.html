@@ -627,17 +627,17 @@
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
         <div class="wrap">
-            <a class="item active" href="#" onclick="switchToServicesTab(); return false;">
+            <a class="item" href="#" onclick="switchToServicesTab(); return false;">
                 <i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i>
                 <small>سرویس‌ها</small>
-            </a>
-            <a class="item floating" href="#" onclick="setActiveBottom('home'); showPage('home'); return false;" style="text-align:center;">
-                <i class="fa-solid fa-house fa-fallback"></i><i data-lucide="home"></i>
-                <small>صفحه اصلی</small>
             </a>
             <a class="item" href="#" onclick="switchToBuyTab(); return false;">
                 <i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i>
                 <small>خرید</small>
+            </a>
+            <a class="item floating active" href="#" onclick="setActiveBottom('home'); showPage('home'); return false;" style="text-align:center;">
+                <i class="fa-solid fa-house fa-fallback"></i><i data-lucide="home"></i>
+                <small>صفحه اصلی</small>
             </a>
             <a class="item" href="#" onclick="setActiveBottom('wallet'); showPage('wallet'); return false;">
                 <i class="fa-solid fa-wallet fa-fallback"></i><i data-lucide="wallet"></i>

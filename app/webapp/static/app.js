@@ -677,6 +677,7 @@ function showPage(which) {
 
 // Initialize default page on load
 document.addEventListener('DOMContentLoaded', () => {
+    setActiveBottom('home');
     showPage('home');
 });
 
