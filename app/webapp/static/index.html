@@ -27,7 +27,7 @@
             --color-bg: #0f172a;                /* slate-900 */
             --color-surface: #1e293b;           /* slate-800 */
             --color-text: #e5e7eb;              /* gray-200 */
-            --color-muted: #94a3b8;             /* slate-400 */
+            --color-muted: #cbd5e1;             /* slate-300 for higher contrast on dark */
             --color-primary: #14b8a6;           /* teal-500 */
             --color-primary-dark: #0e7490;      /* cyan-700 */
             --color-primary-text: #ffffff;
@@ -182,6 +182,7 @@
             word-break: break-all;
             font-family: monospace;
             font-size: 0.9rem;
+            color: var(--color-text);
         }
 
         .status-badge {
@@ -244,7 +245,7 @@
             border: 1px solid rgba(148,163,184,0.25);
         }
         .form-control::placeholder {
-            color: var(--color-muted);
+            color: #b6c2cf;
         }
         .btn-light {
             background: rgba(255,255,255,0.08);
