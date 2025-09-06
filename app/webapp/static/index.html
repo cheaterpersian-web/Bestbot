@@ -34,12 +34,20 @@
             --color-danger: #ef4444;            /* red-500 */
         }
 
+        html {
+            background-color: var(--color-bg) !important;
+        }
+
         body {
             background-color: var(--color-bg);
             color: var(--color-text);
             font-family: 'Vazirmatn', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
+            background-image:
+                radial-gradient(1200px 800px at 80% 0%, rgba(20,184,166,0.08), rgba(0,0,0,0) 45%),
+                radial-gradient(900px 600px at 10% 100%, rgba(14,116,144,0.08), rgba(0,0,0,0) 50%);
+            background-attachment: fixed;
         }
 
         .navbar {
