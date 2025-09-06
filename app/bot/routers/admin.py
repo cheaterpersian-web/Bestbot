@@ -17,6 +17,7 @@ from services.payment_processor import PaymentProcessor
 from bot.inline import admin_review_tx_kb, admin_manage_servers_kb, admin_manage_categories_kb, admin_manage_plans_kb, admin_transaction_actions_kb, user_profile_actions_kb, broadcast_options_kb
 from datetime import datetime
 from bot.inline import admin_approve_add_service_kb
+import json
 from services.scheduled_message_service import ScheduledMessageService
 from models.scheduled_messages import MessageType, MessageStatus, ScheduledMessage
 
@@ -135,6 +136,7 @@ class BroadcastStates(StatesGroup):
     waiting_text = State()
     waiting_photo = State()
     waiting_caption = State()
+    waiting_forward = State()
     waiting_schedule = State()
     choosing_target = State()
     confirming = State()
@@ -195,6 +197,17 @@ async def bc_choose_image(callback: CallbackQuery, state: FSMContext):
     await state.update_data(message_type="image")
     await state.set_state(BroadcastStates.waiting_photo)
     await callback.message.edit_text("تصویر را ارسال کنید:")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "broadcast:forward")
+async def bc_choose_forward(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.update_data(message_type="forward")
+    await state.set_state(BroadcastStates.waiting_forward)
+    await callback.message.edit_text("پیامی را که می‌خواهید همگانی شود، اینجا فوروارد یا ریپلای کنید:")
     await callback.answer()
 
 
@@ -284,6 +297,19 @@ async def bc_receive_caption(message: Message, state: FSMContext):
     await message.answer("زمان ارسال را وارد کنید (الان یا YYYY-MM-DD HH:MM):")
 
 
+@router.message(BroadcastStates.waiting_forward)
+async def bc_receive_forward(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        return
+    # Store source chat and message id to copy later
+    from_chat_id = message.chat.id
+    source_message_id = message.message_id
+    # Optional: allow custom caption override via reply? For now, keep empty
+    await state.update_data(forward_ref={"from_chat_id": from_chat_id, "message_id": source_message_id}, title=f"Forward #{source_message_id}")
+    await state.set_state(BroadcastStates.waiting_schedule)
+    await message.answer("زمان ارسال را وارد کنید (الان یا YYYY-MM-DD HH:MM):")
+
+
 @router.message(BroadcastStates.waiting_schedule)
 async def bc_receive_schedule(message: Message, state: FSMContext):
     if not await _is_admin(message.from_user.id):
@@ -326,7 +352,8 @@ async def bc_choose_target(callback: CallbackQuery, state: FSMContext):
     await state.update_data(recipients_count=recipients_count)
 
     # Build preview text
-    type_name = "متن" if data.get("message_type") == "text" else "تصویر"
+    mt = data.get("message_type")
+    type_name = "متن" if mt == "text" else ("تصویر" if mt == "image" else "فوروارد")
     target_names = {
         "all": "همه کاربران",
         "new_users": "کاربران جدید",
@@ -377,18 +404,26 @@ async def bc_confirm(callback: CallbackQuery, state: FSMContext):
             target_type = "all" if data.get("target") == "all" else "segment"
             target_segments = None if target_type == "all" else [data.get("target")]
 
+            # Build content depending on type
+            if data.get("message_type") == "forward":
+                content_payload = json.dumps(data.get("forward_ref"))
+                msg_type = MessageType.FORWARD
+            else:
+                content_payload = data.get("content", "")
+                msg_type = MessageType.TEXT if data.get("message_type") == "text" else MessageType.IMAGE
+
             message = await ScheduledMessageService.create_scheduled_message(
                 session=session,
                 title=data.get("title", "Broadcast"),
-                content=data.get("content", ""),
+                content=content_payload,
                 scheduled_at=data.get("scheduled_at", datetime.utcnow()),
-                message_type=MessageType.TEXT if data.get("message_type") == "text" else MessageType.IMAGE,
+                message_type=msg_type,
                 target_type=target_type,
                 target_users=None,
                 target_segments=target_segments,
                 created_by=admin_user.id if admin_user else 0,
                 media_file_id=data.get("media_file_id"),
-                media_caption=data.get("content"),
+                media_caption=data.get("content") if data.get("message_type") in {"text", "image"} else None,
             )
 
             # Mark as scheduled
