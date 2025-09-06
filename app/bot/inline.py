@@ -202,3 +202,18 @@ def broadcast_options_kb() -> InlineKeyboardMarkup:
         ]
     )
 
+
+def broadcast_confirm_kb() -> InlineKeyboardMarkup:
+    """Confirmation keyboard for broadcasts"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🚀 ارسال فوری", callback_data="broadcast:send_now"),
+                InlineKeyboardButton(text="⏰ زمان‌بندی", callback_data="broadcast:schedule"),
+            ],
+            [
+                InlineKeyboardButton(text="❌ لغو", callback_data="broadcast:cancel"),
+            ]
+        ]
+    )
+

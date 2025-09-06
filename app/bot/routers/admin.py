@@ -1,6 +1,8 @@
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, CallbackQuery, BufferedInputFile
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 
 from core.config import settings
 from core.db import get_db_session
@@ -12,7 +14,9 @@ from services.purchases import create_service_after_payment
 from services.qrcode_gen import generate_qr_with_template
 from services.admin_dashboard import AdminDashboardService
 from services.payment_processor import PaymentProcessor
-from bot.inline import admin_review_tx_kb, admin_manage_servers_kb, admin_manage_categories_kb, admin_manage_plans_kb, admin_transaction_actions_kb, user_profile_actions_kb
+from bot.inline import admin_review_tx_kb, admin_manage_servers_kb, admin_manage_categories_kb, admin_manage_plans_kb, admin_transaction_actions_kb, user_profile_actions_kb, broadcast_options_kb, broadcast_confirm_kb
+from services.scheduled_message_service import ScheduledMessageService
+from models.scheduled_messages import MessageType, ScheduledMessage, MessageRecipient, MessageAnalytics
 from datetime import datetime
 from bot.inline import admin_approve_add_service_kb
 
@@ -131,7 +135,280 @@ async def admin_broadcast(message: Message):
     if not await _is_admin(message.from_user.id):
         await message.answer("شما دسترسی ادمین ندارید.")
         return
-    await message.answer("این بخش به‌زودی تکمیل می‌شود.")
+    await message.answer(
+        "📢 ارسال پیام همگانی\n\nیک گزینه را انتخاب کنید:",
+        reply_markup=broadcast_options_kb()
+    )
+
+
+class BroadcastStates(StatesGroup):
+    waiting_text = State()
+    waiting_image = State()
+    waiting_schedule = State()
+    waiting_forward = State()
+
+
+@router.callback_query(F.data == "broadcast:text")
+async def broadcast_text_selected(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.clear()
+    await state.set_state(BroadcastStates.waiting_text)
+    await callback.message.edit_text("📝 متن پیام را ارسال کنید:")
+    await callback.answer()
+
+
+@router.message(BroadcastStates.waiting_text)
+async def broadcast_text_received(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        return
+    text = message.text or ""
+    text = text.strip()
+    if not text:
+        await message.answer("متن نامعتبر است. دوباره ارسال کنید.")
+        return
+    await state.update_data(kind="text", content=text)
+    await message.answer(
+        f"پیش‌نمایش پیام:\n\n{text}\n\nتایید کنید:",
+        reply_markup=broadcast_confirm_kb()
+    )
+
+
+@router.callback_query(F.data == "broadcast:image")
+async def broadcast_image_selected(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.clear()
+    await state.set_state(BroadcastStates.waiting_image)
+    await callback.message.edit_text("🖼️ تصویر را ارسال کنید (با کپشن دلخواه):")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "broadcast:forward")
+async def broadcast_forward_selected(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.clear()
+    await state.set_state(BroadcastStates.waiting_forward)
+    await callback.message.edit_text("↗️ پیام موردنظر را اینجا ارسال یا فوروارد کنید تا برای همه کپی شود.")
+    await callback.answer()
+
+
+@router.message(BroadcastStates.waiting_image)
+async def broadcast_image_received(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        return
+    if not message.photo:
+        await message.answer("لطفاً تصویر ارسال کنید.")
+        return
+    file_id = message.photo[-1].file_id
+    caption = message.caption or ""
+    await state.update_data(kind="image", media_file_id=file_id, caption=caption)
+    preview = (caption + "\n\n") if caption else ""
+    preview += "[پیش‌نمایش تصویر]"
+    await message.answer(
+        f"{preview}\n\nتایید کنید:",
+        reply_markup=broadcast_confirm_kb()
+    )
+
+
+@router.message(BroadcastStates.waiting_forward)
+async def broadcast_forward_received(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        return
+    await state.update_data(kind="forward", from_chat_id=message.chat.id, source_message_id=message.message_id)
+    await message.answer("پیش‌نمایش: همان پیامی که فرستادید برای همه کپی می‌شود.\n\nتایید کنید:", reply_markup=broadcast_confirm_kb())
+
+
+@router.callback_query(F.data == "broadcast:send_now")
+async def broadcast_send_now(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    data = await state.get_data()
+    if not data:
+        await callback.answer("داده‌ای برای ارسال وجود ندارد", show_alert=True)
+        return
+    try:
+        kind = data.get("kind")
+        if kind == "forward":
+            # Immediate copy of the provided message to all users
+            from aiogram import Bot
+            bot = Bot(token=settings.bot_token)
+            async with get_db_session() as session:
+                from sqlalchemy import select
+                users = (await session.execute(
+                    select(TelegramUser).where(TelegramUser.is_blocked == False)
+                )).scalars().all()
+            from_chat_id = data.get("from_chat_id")
+            source_message_id = data.get("source_message_id")
+            sent_count = 0
+            failed_count = 0
+            for u in users:
+                try:
+                    await bot.copy_message(chat_id=u.telegram_user_id, from_chat_id=from_chat_id, message_id=source_message_id)
+                    sent_count += 1
+                    # tiny delay to avoid rate limit
+                    await asyncio.sleep(0.05)
+                except Exception:
+                    failed_count += 1
+            await state.clear()
+            await callback.message.edit_text(f"✅ ارسال انجام شد.\nارسال شده: {sent_count}\nناموفق: {failed_count}")
+            await callback.answer()
+            return
+
+        # Text or Image via scheduled-message pipeline
+        async with get_db_session() as session:
+            from sqlalchemy import select
+            admin_user = (await session.execute(
+                select(TelegramUser).where(TelegramUser.telegram_user_id == callback.from_user.id)
+            )).scalar_one()
+
+            now = datetime.utcnow()
+            if kind == "text":
+                msg = await ScheduledMessageService.create_scheduled_message(
+                    session=session,
+                    title="Broadcast: Text",
+                    content=data["content"],
+                    scheduled_at=now,
+                    message_type=MessageType.TEXT,
+                    target_type="all",
+                    created_by=admin_user.id
+                )
+            else:
+                msg = await ScheduledMessageService.create_scheduled_message(
+                    session=session,
+                    title="Broadcast: Image",
+                    content=data.get("caption") or "",
+                    scheduled_at=now,
+                    message_type=MessageType.IMAGE,
+                    target_type="all",
+                    created_by=admin_user.id,
+                    media_file_id=data.get("media_file_id")
+                )
+
+            # Ensure status is scheduled for processing
+            from models.scheduled_messages import MessageStatus as _MS
+            msg.status = _MS.SCHEDULED
+
+            sent_now = await ScheduledMessageService.process_scheduled_messages(session)
+
+        await state.clear()
+        await callback.message.edit_text(f"✅ ارسال همگانی شروع شد. پیام‌های پردازش شده: {sent_now}")
+        await callback.answer()
+    except Exception as e:
+        await callback.answer("خطا در ارسال", show_alert=True)
+        try:
+            await callback.message.answer(f"❌ خطا: {str(e)}")
+        except Exception:
+            pass
+
+
+@router.callback_query(F.data == "broadcast:schedule")
+async def broadcast_schedule_request(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await callback.message.edit_text("⏰ زمان ارسال را به فرمت YYYY-MM-DD HH:MM ارسال کنید:")
+    await state.set_state(BroadcastStates.waiting_schedule)
+    await callback.answer()
+
+
+@router.message(BroadcastStates.waiting_schedule)
+async def broadcast_schedule_received(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        return
+    from datetime import datetime as _dt
+    try:
+        scheduled_at = _dt.strptime(message.text.strip(), "%Y-%m-%d %H:%M")
+    except Exception:
+        await message.answer("فرمت تاریخ نامعتبر است. مثال: 2025-01-31 14:30")
+        return
+
+    data = await state.get_data()
+    try:
+        async with get_db_session() as session:
+            from sqlalchemy import select
+            admin_user = (await session.execute(
+                select(TelegramUser).where(TelegramUser.telegram_user_id == message.from_user.id)
+            )).scalar_one()
+
+            if data.get("kind") == "text":
+                scheduled = await ScheduledMessageService.create_scheduled_message(
+                    session=session,
+                    title="Broadcast: Text",
+                    content=data["content"],
+                    scheduled_at=scheduled_at,
+                    message_type=MessageType.TEXT,
+                    target_type="all",
+                    created_by=admin_user.id
+                )
+            else:
+                scheduled = await ScheduledMessageService.create_scheduled_message(
+                    session=session,
+                    title="Broadcast: Image",
+                    content=data.get("caption") or "",
+                    scheduled_at=scheduled_at,
+                    message_type=MessageType.IMAGE,
+                    target_type="all",
+                    created_by=admin_user.id,
+                    media_file_id=data.get("media_file_id")
+                )
+
+            # Ensure scheduled status
+            from models.scheduled_messages import MessageStatus as _MS
+            scheduled.status = _MS.SCHEDULED
+
+        await state.clear()
+        await message.answer(f"✅ پیام برای {scheduled_at.strftime('%Y/%m/%d %H:%M')} زمان‌بندی شد.")
+    except Exception as e:
+        await message.answer(f"❌ خطا در زمان‌بندی: {str(e)}")
+
+
+@router.callback_query(F.data == "broadcast:cancel")
+async def broadcast_cancel(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.clear()
+    await callback.message.edit_text("لغو شد.")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "broadcast:stats")
+async def broadcast_stats(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select, desc
+        recent_messages = (await session.execute(
+            select(ScheduledMessage)
+            .order_by(desc(ScheduledMessage.created_at))
+            .limit(5)
+        )).scalars().all()
+    if not recent_messages:
+        await callback.message.edit_text("هیچ ارسال همگانی/زمان‌بندی‌شده‌ای ثبت نشده است.")
+        await callback.answer()
+        return
+    status_map = {
+        "draft": "📝",
+        "scheduled": "⏰",
+        "sending": "📤",
+        "sent": "✅",
+        "failed": "❌",
+        "cancelled": "🚫",
+    }
+    lines = ["📊 آخرین ارسال‌ها:", ""]
+    for m in recent_messages:
+        emoji = status_map.get(m.status, "❓")
+        date_str = m.scheduled_at.strftime('%m/%d %H:%M') if m.scheduled_at else "-"
+        lines.append(f"{emoji} {m.title} | گیرندگان: {m.total_recipients} | ارسال‌شده: {m.sent_count} | ناموفق: {m.failed_count} | زمان: {date_str}")
+    await callback.message.edit_text("\n".join(lines))
+    await callback.answer()
 
 
 @router.message(F.text == "🖥️ مدیریت سرورها")
