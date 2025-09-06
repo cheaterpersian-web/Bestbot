@@ -7,6 +7,9 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --tg-theme-bg-color: var(--tg-theme-bg-color, #ffffff);
@@ -34,7 +37,7 @@
         body {
             background-color: var(--color-bg);
             color: var(--color-text);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Vazirmatn', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
         }
@@ -219,6 +222,28 @@
             z-index: 1055;
         }
         #toast.show { opacity: 1; }
+
+        /* Dark form controls and light buttons for better readability */
+        .form-control, .form-select {
+            background-color: #0b1220;
+            color: var(--color-text);
+            border: 1px solid rgba(148,163,184,0.25);
+        }
+        .form-control::placeholder {
+            color: var(--color-muted);
+        }
+        .btn-light {
+            background: rgba(255,255,255,0.08);
+            color: var(--color-text);
+            border: none;
+        }
+        .btn-light:hover {
+            background: rgba(255,255,255,0.14);
+        }
+        .modal-content {
+            background-color: var(--color-surface);
+            color: var(--color-text);
+        }
     </style>
 </head>
 <body>
@@ -448,6 +473,7 @@
                     <!-- Service details will be loaded here -->
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-light" onclick="copyConfigLink()"><i class="fas fa-copy"></i> کپی کانفیگ</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
                     <button type="button" class="btn btn-primary" onclick="renewService()">تمدید</button>
                 </div>
@@ -486,5 +512,27 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/app.js"></script>
     <div id="toast"></div>
+
+    <!-- Transactions Modal -->
+    <div class="modal fade" id="transactionsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تاریخچه تراکنش‌ها</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="transactions-modal-body">
+                    <div class="skeleton-card skeleton">
+                        <div class="skeleton-line" style="width: 70%"></div>
+                        <div class="skeleton-line" style="width: 40%"></div>
+                        <div class="skeleton-line" style="width: 60%"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

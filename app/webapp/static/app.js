@@ -11,9 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
     tg.ready();
     tg.expand();
     
-    // Set theme colors
-    document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
-    document.body.style.color = tg.themeParams.text_color || '#000000';
+    // Respect custom dark theme; only apply Telegram theme if provided and high-contrast
+    if (tg.themeParams && tg.themeParams.bg_color) {
+        // Optional: blend instead of overriding
+        document.body.style.backgroundColor = tg.themeParams.bg_color;
+    }
     
     // Get user data
     user = tg.initDataUnsafe.user;
@@ -71,8 +73,9 @@ function setupEventListeners() {
 }
 
 function applyThemeFromTelegram() {
-    document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
-    document.body.style.color = tg.themeParams.text_color || '#000000';
+    if (tg.themeParams && tg.themeParams.bg_color) {
+        document.body.style.backgroundColor = tg.themeParams.bg_color;
+    }
 }
 
 function loadUserData() {
@@ -153,6 +156,7 @@ function displayServices() {
     services.forEach(service => {
         const serviceCard = document.createElement('div');
         serviceCard.className = 'service-card';
+        serviceCard.style.cursor = 'pointer';
         
         const statusClass = service.is_active ? 'status-active' : 'status-expired';
         const statusText = service.is_active ? 'فعال' : 'منقضی شده';
@@ -194,6 +198,7 @@ function displayServices() {
         `;
         
         servicesList.appendChild(serviceCard);
+        serviceCard.addEventListener('click', () => showServiceDetails(service.id));
     });
 }
 
@@ -557,6 +562,35 @@ function showReferral() {
 
 function showSupport() {
     tg.openTelegramLink('https://t.me/support_username');
+}
+
+async function showTransactions() {
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('transactionsModal'));
+        modal.show();
+        const body = document.getElementById('transactions-modal-body');
+        body.innerHTML = '<div class="skeleton-card skeleton"><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:60%"></div></div>';
+        const resp = await fetch('/api/wallet/transactions', { headers: { 'Authorization': `Bearer ${tg.initData}` } });
+        if (!resp.ok) throw new Error('failed');
+        const txs = await resp.json();
+        if (!txs.length) {
+            body.innerHTML = '<p class="text-center text-muted">تراکنشی یافت نشد</p>';
+            return;
+        }
+        body.innerHTML = txs.map(t => `
+            <div class="card mb-2" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(148,163,184,0.15)">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <div><strong>${Number(t.amount).toLocaleString('fa-IR')} تومان</strong></div>
+                        <small style="color: var(--color-muted)">${t.description || t.status}</small>
+                    </div>
+                    <small style="color: var(--color-muted)">${new Date(t.created_at).toLocaleDateString('fa-IR')}</small>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        showError('خطا در دریافت تراکنش‌ها');
+    }
 }
 
 function refreshServices() {
