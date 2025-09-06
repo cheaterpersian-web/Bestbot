@@ -58,6 +58,16 @@ function setupEventListeners() {
             showPlanDetails(planId);
         }
     });
+
+    // Plan filter input
+    const planFilter = document.getElementById('plan-filter');
+    if (planFilter) {
+        planFilter.addEventListener('input', function() {
+            const q = this.value.trim().toLowerCase();
+            const filtered = q ? plans.filter(p => (p.title || '').toLowerCase().includes(q)) : plans;
+            renderPlansOptions(filtered);
+        });
+    }
 }
 
 function applyThemeFromTelegram() {
@@ -146,23 +156,37 @@ function displayServices() {
         
         const statusClass = service.is_active ? 'status-active' : 'status-expired';
         const statusText = service.is_active ? 'فعال' : 'منقضی شده';
-        
+
+        const used = Number(service.used_traffic_gb || 0);
+        const total = Number(service.traffic_gb || 0);
+        const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+        const exp = service.expires_at ? new Date(service.expires_at).toLocaleDateString('fa-IR') : '-';
         serviceCard.innerHTML = `
-            <div class="row">
+            <div class="row align-items-center">
                 <div class="col-8">
-                    <h6><i class="fas fa-server"></i> ${service.remark || 'سرویس VPN'}</h6>
-                    <p class="mb-1">
-                        <small><i class="fas fa-calendar"></i> انقضا: ${new Date(service.expires_at).toLocaleDateString('fa-IR')}</small>
-                    </p>
-                    <p class="mb-0">
-                        <small><i class="fas fa-database"></i> حجم: ${service.traffic_gb} گیگابایت</small>
-                    </p>
+                    <h6 class="mb-1"><i class="fas fa-server"></i> ${service.remark || 'سرویس VPN'}</h6>
+                    <div class="mb-1" style="color: var(--color-muted)">
+                        <small><i class="fas fa-calendar"></i> انقضا: ${exp}</small>
+                    </div>
+                    <div class="progress" style="height: 8px; background: rgba(255,255,255,0.08);">
+                        <div class="progress-bar" role="progressbar" style="width: ${percent}%; background: var(--color-primary);" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1" style="color: var(--color-muted)">
+                        <small>${used} از ${total} گیگابایت</small>
+                        <small>${percent}%</small>
+                    </div>
                 </div>
                 <div class="col-4 text-end">
                     <span class="status-badge ${statusClass}">${statusText}</span>
-                    <div class="mt-2">
-                        <button class="btn btn-light btn-sm" onclick="showServiceDetails(${service.id})">
+                    <div class="mt-2 d-flex gap-1 justify-content-end">
+                        <button title="جزئیات" class="btn btn-light btn-sm" onclick="showServiceDetails(${service.id})">
                             <i class="fas fa-eye"></i>
+                        </button>
+                        <button title="کپی کانفیگ" class="btn btn-light btn-sm" onclick="quickCopy(${service.id})">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button title="تمدید سریع" class="btn btn-light btn-sm" onclick="quickRenew(${service.id})">
+                            <i class="fas fa-rotate"></i>
                         </button>
                     </div>
                 </div>
@@ -266,16 +290,26 @@ async function loadPlans(categoryId) {
 function displayPlans() {
     const planSelect = document.getElementById('plan-select');
     planSelect.innerHTML = '<option value="">انتخاب پلن</option>';
-    
-    plans.forEach(plan => {
+
+    renderPlansOptions(plans);
+
+    // Reset buy button and Telegram MainButton
+    updateBuyMainButton();
+}
+
+function renderPlansOptions(source) {
+    const planSelect = document.getElementById('plan-select');
+    const current = planSelect.value;
+    planSelect.innerHTML = '<option value="">انتخاب پلن</option>';
+    source.forEach(plan => {
         const option = document.createElement('option');
         option.value = plan.id;
         option.textContent = `${plan.title} - ${plan.price_irr.toLocaleString('fa-IR')} تومان`;
         planSelect.appendChild(option);
     });
-
-    // Reset buy button and Telegram MainButton
-    updateBuyMainButton();
+    if (current && source.some(p => p.id == current)) {
+        planSelect.value = current;
+    }
 }
 
 function showPlanDetails(planId) {
@@ -314,6 +348,7 @@ async function buyService() {
     
     if (confirmed) {
         try {
+            tg.MainButton.showProgress && tg.MainButton.showProgress(true);
             const response = await fetch('/api/purchase', {
                 method: 'POST',
                 headers: {
@@ -342,6 +377,8 @@ async function buyService() {
         } catch (error) {
             console.error('Error purchasing service:', error);
             showError('خطا در خرید سرویس');
+        } finally {
+            tg.MainButton.hideProgress && tg.MainButton.hideProgress();
         }
     }
 }
@@ -407,7 +444,7 @@ function showServiceDetails(serviceId) {
         <hr>
         <div class="config-link">
             <strong>لینک کانفیگ:</strong><br>
-            <code>${service.config_link || 'در حال تولید...'}</code>
+            <code>${service.config_link || service.subscription_url || 'در حال تولید...'}</code>
         </div>
         ${service.qr_code ? `
         <div class="qr-code">

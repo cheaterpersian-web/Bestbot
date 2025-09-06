@@ -325,6 +325,9 @@
                 <div id="services-list">
                     <!-- Services will be loaded here -->
                 </div>
+                <div class="text-center mt-2">
+                    <small style="color: var(--color-muted)">برای جزئیات، روی هر سرویس بزنید</small>
+                </div>
                 <div class="text-center mt-3">
                     <button class="btn btn-primary" onclick="refreshServices()">
                         <i class="fas fa-sync"></i> بروزرسانی
@@ -353,6 +356,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">انتخاب پلن:</label>
+                            <input type="text" class="form-control mb-2" id="plan-filter" placeholder="جستجوی پلن...">
                             <select class="form-select" id="plan-select">
                                 <option value="">ابتدا دسته‌بندی را انتخاب کنید</option>
                             </select>
