@@ -662,32 +662,20 @@ function setActiveBottom(which) {
 }
 
 function showPage(which) {
-    const pages = ['services', 'buy', 'wallet', 'profile'];
-    const app = document.getElementById('app');
-    // Hide all page containers
-    ['home','services','buy','wallet','profile'].forEach(id => {
+    const ids = ['home','services','buy','wallet','profile'];
+    ids.forEach(id => {
         const el = document.getElementById(`page-${id}`);
         if (!el) return;
-        el.classList.remove('visible');
-        el.style.display = 'none';
-    });
-    pages.forEach(p => {
-        const el = document.getElementById(`page-${p}`);
-        if (el) {
-            if (p === which) {
-                el.style.display = '';
-                requestAnimationFrame(() => el.classList.add('visible'));
-            } else {
-                el.style.display = 'none';
-                el.classList.remove('visible');
-            }
+        if (id === which) {
+            el.style.display = '';
+            requestAnimationFrame(() => el.classList.add('visible'));
+        } else {
+            el.classList.remove('visible');
+            el.style.display = 'none';
         }
     });
-    // Show home header block only on home
     const header = document.getElementById('home-header');
     if (header) header.style.display = (which === 'home') ? '' : 'none';
-
-    // Trigger loaders per page to avoid empty views
     try {
         if (which === 'services') {
             loadUserServices();
