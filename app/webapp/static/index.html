@@ -18,17 +18,30 @@
             --tg-theme-secondary-bg-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
         }
 
+        /* Dark, cool theme variables */
+        :root {
+            --color-bg: #0f172a;                /* slate-900 */
+            --color-surface: #1e293b;           /* slate-800 */
+            --color-text: #e5e7eb;              /* gray-200 */
+            --color-muted: #94a3b8;             /* slate-400 */
+            --color-primary: #14b8a6;           /* teal-500 */
+            --color-primary-dark: #0e7490;      /* cyan-700 */
+            --color-primary-text: #ffffff;
+            --color-success: #10b981;           /* green-500 */
+            --color-danger: #ef4444;            /* red-500 */
+        }
+
         body {
-            background-color: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
+            background-color: var(--color-bg);
+            color: var(--color-text);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
         }
 
         .navbar {
-            background: linear-gradient(90deg, var(--tg-theme-button-color), #1e6fb5);
-            color: var(--tg-theme-button-text-color);
+            background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
+            color: var(--color-primary-text);
             padding: 1rem;
             text-align: center;
             font-weight: bold;
@@ -39,7 +52,7 @@
         }
 
         .card {
-            background-color: var(--tg-theme-secondary-bg-color);
+            background-color: var(--color-surface);
             border: none;
             border-radius: 12px;
             margin: 1rem;
@@ -47,49 +60,52 @@
         }
 
         .card-header {
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
+            background-color: var(--color-primary);
+            color: var(--color-primary-text);
             border-radius: 12px 12px 0 0;
             font-weight: bold;
         }
 
         .btn-primary {
-            background-color: var(--tg-theme-button-color);
-            border-color: var(--tg-theme-button-color);
+            background-color: var(--color-primary);
+            border-color: var(--color-primary);
             border-radius: 10px;
             padding: 0.5rem 1rem;
             font-weight: 600;
         }
 
         .btn-primary:hover {
-            background-color: var(--tg-theme-button-color);
+            background-color: var(--color-primary);
             opacity: 0.9;
         }
 
         .service-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: rgba(255,255,255,0.02);
+            color: var(--color-text);
             border-radius: 16px;
             padding: 1rem;
             margin: 0.5rem 1rem;
             transition: transform 0.12s ease, box-shadow 0.12s ease;
+            border: 1px solid rgba(148,163,184,0.15);
         }
         .service-card:active { transform: scale(0.99); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
 
         .wallet-card {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
+            background-color: var(--color-surface);
+            color: var(--color-text);
             border-radius: 16px;
             padding: 1rem;
             margin: 0.5rem 1rem;
+            border: 1px solid rgba(148,163,184,0.15);
         }
 
         .stats-card {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
+            background-color: var(--color-surface);
+            color: var(--color-text);
             border-radius: 16px;
             padding: 1rem;
             margin: 0.5rem 1rem;
+            border: 1px solid rgba(148,163,184,0.15);
         }
 
         .loading {
@@ -98,8 +114,8 @@
         }
 
         .spinner {
-            border: 3px solid var(--tg-theme-hint-color);
-            border-top: 3px solid var(--tg-theme-button-color);
+            border: 3px solid var(--color-muted);
+            border-top: 3px solid var(--color-primary);
             border-radius: 50%;
             width: 30px;
             height: 30px;
@@ -117,18 +133,18 @@
         }
 
         .nav-tabs {
-            border-bottom: 2px solid var(--tg-theme-hint-color);
+            border-bottom: 2px solid var(--color-muted);
         }
 
         .nav-tabs .nav-link {
-            color: var(--tg-theme-text-color);
+            color: var(--color-text);
             border: none;
             border-bottom: 2px solid transparent;
         }
 
         .nav-tabs .nav-link.active {
-            color: var(--tg-theme-button-color);
-            border-bottom-color: var(--tg-theme-button-color);
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
         }
 
         .qr-code {
@@ -142,7 +158,7 @@
         }
 
         .config-link {
-            background-color: var(--tg-theme-secondary-bg-color);
+            background-color: rgba(255,255,255,0.04);
             border-radius: 8px;
             padding: 0.5rem;
             margin: 0.5rem 0;
@@ -159,18 +175,18 @@
         }
 
         .status-active {
-            background-color: #28a745;
-            color: white;
+            background-color: var(--color-success);
+            color: #001a0d;
         }
 
         .status-expired {
-            background-color: #dc3545;
-            color: white;
+            background-color: var(--color-danger);
+            color: #330000;
         }
 
         .status-pending {
-            background-color: #ffc107;
-            color: black;
+            background-color: #f59e0b;
+            color: #1a0f00;
         }
         /* Skeleton loader */
         .skeleton {
