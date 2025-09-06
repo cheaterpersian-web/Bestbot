@@ -647,10 +647,10 @@ function switchToServicesTab() {
 function setActiveBottom(which) {
     const items = document.querySelectorAll('.bottom-nav .item');
     items.forEach((el) => el.classList.remove('active'));
-    // order: services, home(floating), buy, wallet, profile
+    // order: services, buy, home(floating), wallet, profile (per current DOM)
     if (which === 'services') items[0]?.classList.add('active');
-    if (which === 'home') items[1]?.classList.add('active');
-    if (which === 'buy') items[2]?.classList.add('active');
+    if (which === 'buy') items[1]?.classList.add('active');
+    if (which === 'home') items[2]?.classList.add('active');
     if (which === 'wallet') items[3]?.classList.add('active');
     if (which === 'profile') items[4]?.classList.add('active');
 }
