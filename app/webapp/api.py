@@ -187,14 +187,14 @@ async def get_server_categories(server_id: int, user_data: dict = Depends(verify
 
         # Category does not have server_id; derive categories via plans mapped to this server
         rows = await session.execute(
-            select(distinct(Category.id), Category.title, Category.description)
+            select(distinct(Category.id), Category.title, Category.description, Category.icon, Category.color)
             .join(Plan, Plan.category_id == Category.id)
             .where(and_(Category.is_active == True, Plan.server_id == server_id))
             .order_by(Category.sort_order)
         )
         return [
-            {"id": cid, "title": title, "description": desc}
-            for cid, title, desc in rows.all()
+            {"id": cid, "title": title, "description": desc, "icon": icon, "color": color}
+            for cid, title, desc, icon, color in rows.all()
         ]
 
 
