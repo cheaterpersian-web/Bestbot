@@ -259,11 +259,16 @@
             background-color: var(--color-surface);
             color: var(--color-text);
         }
+        /* Wallet heading and values */
+        .wallet-card h5, .wallet-card h3, #wallet-balance, #wallet-balance-tab { color: var(--color-primary-text) !important; }
 
         /* Ensure readable text on dark cards */
         .card .card-body strong { color: var(--color-text) !important; }
         #user-name, #user-username, #user-id, #user-join-date { color: var(--color-text) !important; }
         .text-muted { color: var(--color-muted) !important; }
+        /* Brighten form labels and headings on dark cards */
+        .form-label, label { color: var(--color-text) !important; }
+        .card h1, .card h2, .card h3, .card h4, .card h5, .card h6 { color: var(--color-text) !important; }
 
         /* Lucide + FA fallback */
         .fa-fallback { margin-left: 4px; }
