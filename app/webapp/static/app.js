@@ -667,7 +667,7 @@ function showPage(which) {
         const el = document.getElementById(`page-${id}`);
         if (!el) return;
         if (id === which) {
-            el.style.display = '';
+            el.style.display = 'block';
             requestAnimationFrame(() => el.classList.add('visible'));
         } else {
             el.classList.remove('visible');
