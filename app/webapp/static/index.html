@@ -262,11 +262,16 @@
         .card .card-body strong { color: var(--color-text) !important; }
         #user-name, #user-username, #user-id, #user-join-date { color: var(--color-text) !important; }
         .text-muted { color: var(--color-muted) !important; }
+
+        /* Lucide + FA fallback */
+        .fa-fallback { margin-left: 4px; }
+        .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-left: 4px; }
+        .lucide-ready .fa-fallback { display: none !important; }
     </style>
 </head>
 <body>
     <div class="navbar">
-        <i data-lucide="shield"></i> ربات VPN - پنل کاربری
+        <i class="fa-solid fa-shield fa-fallback"></i><i data-lucide="shield"></i> ربات VPN - پنل کاربری
     </div>
 
     <div id="loading" class="loading">
@@ -308,12 +313,12 @@
         <div class="wallet-card">
             <div class="row">
                 <div class="col-8">
-                    <h5><i data-lucide="wallet"></i> کیف پول</h5>
+                    <h5><i class="fa-solid fa-wallet fa-fallback"></i><i data-lucide="wallet"></i> کیف پول</h5>
                     <h3 class="wallet-amount" id="wallet-balance">0 تومان</h3>
                 </div>
                 <div class="col-4 text-end">
                     <button class="btn btn-light btn-sm" onclick="showTopUp()">
-                        <i data-lucide="plus"></i> شارژ
+                        <i class="fa-solid fa-plus fa-fallback"></i><i data-lucide="plus"></i> شارژ
                     </button>
                 </div>
             </div>
@@ -348,22 +353,22 @@
         <ul class="nav nav-tabs" id="mainTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="services-tab" data-bs-toggle="tab" data-bs-target="#services" type="button" role="tab">
-                    <i data-lucide="server"></i> سرویس‌ها
+                    <i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i> سرویس‌ها
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="buy-tab" data-bs-toggle="tab" data-bs-target="#buy" type="button" role="tab">
-                    <i data-lucide="shopping-cart"></i> خرید
+                    <i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i> خرید
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet" type="button" role="tab">
-                    <i data-lucide="wallet"></i> کیف پول
+                    <i class="fa-solid fa-wallet fa-fallback"></i><i data-lucide="wallet"></i> کیف پول
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">
-                    <i data-lucide="user"></i> پروفایل
+                    <i class="fa-solid fa-user fa-fallback"></i><i data-lucide="user"></i> پروفایل
                 </button>
             </li>
         </ul>
@@ -380,7 +385,7 @@
                 </div>
                 <div class="text-center mt-3">
                     <button class="btn btn-primary" onclick="refreshServices()">
-                        <i data-lucide="refresh-ccw"></i> بروزرسانی
+                        <i class="fa-solid fa-rotate-right fa-fallback"></i><i data-lucide="refresh-ccw"></i> بروزرسانی
                     </button>
                 </div>
             </div>

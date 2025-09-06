@@ -36,7 +36,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Render Lucide outline icons
-    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
+    try {
+        if (window.lucide && lucide.createIcons) {
+            lucide.createIcons({ attrs: { class: 'lucide-icon' } });
+            document.documentElement.classList.add('lucide-ready');
+        }
+    } catch {}
 });
 
 function setupEventListeners() {
