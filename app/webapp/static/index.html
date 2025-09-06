@@ -288,6 +288,29 @@
         }
         .bottom-nav .item .lucide-icon, .bottom-nav .item .fa-fallback { width: 20px; height: 20px; }
         .bottom-nav .item.active { color: var(--color-primary); background: rgba(20,184,166,0.08); }
+
+        /* Hero banner */
+        .hero {
+            margin: 16px;
+            padding: 16px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(20,184,166,0.25), rgba(14,116,144,0.18));
+            border: 1px solid rgba(20,184,166,0.28);
+        }
+        .hero h5 { margin: 0 0 6px 0; }
+        .hero small { color: var(--color-muted); }
+        .hero .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .hero .actions .btn { border-radius: 999px; padding: 6px 12px; }
+
+        /* Category cards */
+        .categories-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .category-card {
+            border-radius: 14px; padding: 12px; background: var(--color-surface);
+            border: 1px solid rgba(148,163,184,0.15);
+            display: flex; align-items: center; gap: 10px; cursor: pointer;
+        }
+        .category-card:hover { border-color: rgba(20,184,166,0.4); }
+        .category-icon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; }
     </style>
 </head>
 <body>
@@ -302,6 +325,16 @@
 
     <div id="app" class="app-container" style="display: none;">
         <!-- User Info Card -->
+        <div class="hero">
+            <h5>سلام، <span id="hero-name">کاربر عزیز</span> 👋</h5>
+            <small>از اینجا سریع به بخش‌های مهم دسترسی داری.</small>
+            <div class="actions">
+                <button class="btn btn-light" onclick="switchToBuyTab()"><i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i> خرید سریع</button>
+                <button class="btn btn-light" onclick="switchToServicesTab()"><i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i> سرویس‌های من</button>
+                <button class="btn btn-light" onclick="showTopUp()"><i class="fa-solid fa-plus fa-fallback"></i><i data-lucide="plus"></i> شارژ کیف پول</button>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-user"></i> اطلاعات کاربر
@@ -418,6 +451,7 @@
                         <i class="fas fa-shopping-cart"></i> خرید سرویس جدید
                     </div>
                     <div class="card-body">
+                        <div id="categories-grid" class="categories-grid mb-3" style="display:none;"></div>
                         <div class="mb-3">
                             <label class="form-label">انتخاب سرور:</label>
                             <select class="form-select" id="server-select">

@@ -90,6 +90,8 @@ function loadUserData() {
     if (!user) return;
     
     document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name || ''}`.trim();
+    const heroName = document.getElementById('hero-name');
+    if (heroName) heroName.textContent = user.first_name || 'کاربر عزیز';
     document.getElementById('user-username').textContent = user.username ? `@${user.username}` : 'ندارد';
     document.getElementById('user-id').textContent = user.id;
     try {
@@ -270,6 +272,7 @@ async function loadCategories(serverId) {
         if (response.ok) {
             categories = await response.json();
             displayCategories();
+            renderCategoryCards();
         }
     } catch (error) {
         console.error('Error loading categories:', error);
@@ -286,6 +289,38 @@ function displayCategories() {
         option.textContent = category.title;
         categorySelect.appendChild(option);
     });
+}
+
+function renderCategoryCards() {
+    const grid = document.getElementById('categories-grid');
+    if (!grid) return;
+    if (!categories || categories.length === 0) { grid.style.display = 'none'; return; }
+    grid.style.display = '';
+    grid.innerHTML = '';
+    categories.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'category-card';
+        const bg = (c.color && /^#/.test(c.color)) ? c.color : '#14b8a6';
+        card.innerHTML = `
+            <div class="category-icon" style="background: ${bg}22; border: 1px solid ${bg}55">
+                <i class="fa-solid fa-layer-group fa-fallback"></i><i data-lucide="folder-tree"></i>
+            </div>
+            <div>
+                <div><strong>${c.title}</strong></div>
+                <small class="text-muted">${c.description || ''}</small>
+            </div>
+        `;
+        card.addEventListener('click', () => {
+            const select = document.getElementById('category-select');
+            if (select) {
+                select.value = String(c.id);
+                const event = new Event('change');
+                select.dispatchEvent(event);
+            }
+        });
+        grid.appendChild(card);
+    });
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
 }
 
 async function loadPlans(categoryId) {
