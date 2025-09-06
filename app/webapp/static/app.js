@@ -672,6 +672,22 @@ function showPage(which) {
         const el = document.getElementById(`page-${p}`);
         if (el) el.style.display = (p === which) ? '' : 'none';
     });
+    // Show home page special layout
+    const home = document.getElementById('page-home');
+    if (home) home.style.display = (which === 'home') ? '' : 'none';
+
+    // Trigger loaders per page to avoid empty views
+    try {
+        if (which === 'services') {
+            loadUserServices();
+        } else if (which === 'buy') {
+            if (!servers || servers.length === 0) loadServers();
+        } else if (which === 'wallet' || which === 'home') {
+            loadUserStats();
+        } else if (which === 'profile') {
+            loadUserData();
+        }
+    } catch {}
     try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
 }
 
