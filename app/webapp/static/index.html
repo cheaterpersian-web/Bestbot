@@ -172,6 +172,37 @@
             background-color: #ffc107;
             color: black;
         }
+        /* Skeleton loader */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+            border-radius: 8px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-line { height: 12px; margin: 8px 0; }
+        .skeleton-card { padding: 16px; margin: 8px 16px; border-radius: 12px; }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1055;
+        }
+        #toast.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -434,5 +465,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/app.js"></script>
+    <div id="toast"></div>
 </body>
 </html>

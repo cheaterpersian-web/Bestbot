@@ -27,6 +27,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup event listeners
     setupEventListeners();
+
+    // React to theme changes
+    if (tg.onEvent) {
+        tg.onEvent('themeChanged', applyThemeFromTelegram);
+    }
 });
 
 function setupEventListeners() {
@@ -53,6 +58,11 @@ function setupEventListeners() {
             showPlanDetails(planId);
         }
     });
+}
+
+function applyThemeFromTelegram() {
+    document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+    document.body.style.color = tg.themeParams.text_color || '#000000';
 }
 
 function loadUserData() {
@@ -96,6 +106,7 @@ async function loadUserStats() {
 
 async function loadUserServices() {
     try {
+        showServicesSkeleton();
         const response = await fetch('/api/user/services', {
             headers: {
                 'Authorization': `Bearer ${tg.initData}`
@@ -160,6 +171,21 @@ function displayServices() {
         
         servicesList.appendChild(serviceCard);
     });
+}
+
+function showServicesSkeleton() {
+    const servicesList = document.getElementById('services-list');
+    servicesList.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+        const card = document.createElement('div');
+        card.className = 'skeleton-card skeleton';
+        card.innerHTML = `
+            <div class="skeleton-line" style="width: 60%"></div>
+            <div class="skeleton-line" style="width: 40%"></div>
+            <div class="skeleton-line" style="width: 80%"></div>
+        `;
+        servicesList.appendChild(card);
+    }
 }
 
 async function loadServers() {
@@ -247,6 +273,9 @@ function displayPlans() {
         option.textContent = `${plan.title} - ${plan.price_irr.toLocaleString('fa-IR')} تومان`;
         planSelect.appendChild(option);
     });
+
+    // Reset buy button and Telegram MainButton
+    updateBuyMainButton();
 }
 
 function showPlanDetails(planId) {
@@ -267,6 +296,7 @@ function showPlanDetails(planId) {
     planPrice.textContent = plan.price_irr.toLocaleString('fa-IR');
     planDetails.style.display = 'block';
     buyButton.disabled = false;
+    updateBuyMainButton(plan);
 }
 
 async function buyService() {
@@ -313,6 +343,24 @@ async function buyService() {
             console.error('Error purchasing service:', error);
             showError('خطا در خرید سرویس');
         }
+    }
+}
+
+function updateBuyMainButton(plan) {
+    try {
+        const selectedPlanId = document.getElementById('plan-select').value;
+        const selected = plan || plans.find(p => p.id == selectedPlanId);
+        if (selected) {
+            tg.MainButton.setText(`خرید: ${selected.title} (${selected.price_irr.toLocaleString('fa-IR')} تومان)`);
+            tg.MainButton.show();
+            tg.MainButton.onClick(async () => {
+                await buyService();
+            });
+        } else {
+            tg.MainButton.hide();
+        }
+    } catch (e) {
+        // MainButton may be unavailable in some clients
     }
 }
 
@@ -371,6 +419,20 @@ function showServiceDetails(serviceId) {
     
     const modal = new bootstrap.Modal(document.getElementById('serviceModal'));
     modal.show();
+}
+
+function copyConfigLink() {
+    try {
+        const modalBody = document.getElementById('service-modal-body');
+        const codeEl = modalBody.querySelector('.config-link code');
+        const text = codeEl ? codeEl.textContent : '';
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            toast('لینک کانفیگ کپی شد');
+        });
+    } catch (e) {
+        // fallback
+    }
 }
 
 function showTopUp() {
@@ -477,10 +539,20 @@ function switchToServicesTab() {
 
 function showError(message) {
     tg.showAlert(message);
+    toast(message);
 }
 
 function showSuccess(message) {
     tg.showAlert(message);
+    toast(message);
+}
+
+function toast(message) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1800);
 }
 
 // Hide loading and show app
