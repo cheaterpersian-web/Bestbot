@@ -564,7 +564,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=20250906"></script>
     <div id="toast"></div>
 
     <!-- Transactions Modal -->
@@ -600,11 +600,11 @@
                 <i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i>
                 <small>خرید</small>
             </a>
-            <a class="item" href="#" onclick="document.getElementById('wallet-tab').click(); return false;">
+            <a class="item" href="#" onclick="setActiveBottom('wallet'); showPage('wallet'); return false;">
                 <i class="fa-solid fa-wallet fa-fallback"></i><i data-lucide="wallet"></i>
                 <small>کیف پول</small>
             </a>
-            <a class="item" href="#" onclick="document.getElementById('profile-tab').click(); return false;">
+            <a class="item" href="#" onclick="setActiveBottom('profile'); showPage('profile'); return false;">
                 <i class="fa-solid fa-user fa-fallback"></i><i data-lucide="user"></i>
                 <small>پروفایل</small>
             </a>

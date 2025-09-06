@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup event listeners
     setupEventListeners();
+    // Force show default page to avoid leftover tab content
+    showPage('services');
 
     // React to theme changes
     if (tg.onEvent) {
