@@ -627,12 +627,14 @@ function switchToBuyTab() {
     const buyTab = document.getElementById('buy-tab');
     buyTab.click();
     setActiveBottom('buy');
+    showPage('buy');
 }
 
 function switchToServicesTab() {
     const servicesTab = document.getElementById('services-tab');
     servicesTab.click();
     setActiveBottom('services');
+    showPage('services');
 }
 
 function setActiveBottom(which) {
@@ -643,6 +645,20 @@ function setActiveBottom(which) {
     if (which === 'wallet') items[2]?.classList.add('active');
     if (which === 'profile') items[3]?.classList.add('active');
 }
+
+function showPage(which) {
+    const pages = ['services', 'buy', 'wallet', 'profile'];
+    pages.forEach(p => {
+        const el = document.getElementById(`page-${p}`);
+        if (el) el.style.display = (p === which) ? '' : 'none';
+    });
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
+}
+
+// Initialize default page on load
+document.addEventListener('DOMContentLoaded', () => {
+    showPage('services');
+});
 
 function showError(message) {
     tg.showAlert(message);

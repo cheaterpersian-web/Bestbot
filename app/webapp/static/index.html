@@ -403,143 +403,112 @@
             </div>
         </div>
 
-        <!-- Navigation Tabs -->
-        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="services-tab" data-bs-toggle="tab" data-bs-target="#services" type="button" role="tab">
-                    <i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i> سرویس‌ها
+        <!-- Pages instead of tabs -->
+        <div id="page-services" class="page" style="display:none;">
+            <div id="services-list">
+                <!-- Services will be loaded here -->
+            </div>
+            <div class="text-center mt-2">
+                <small style="color: var(--color-muted)">برای جزئیات، روی هر سرویس بزنید</small>
+            </div>
+            <div class="text-center mt-3">
+                <button class="btn btn-primary" onclick="refreshServices()">
+                    <i class="fa-solid fa-rotate-right fa-fallback"></i><i data-lucide="refresh-ccw"></i> بروزرسانی
                 </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="buy-tab" data-bs-toggle="tab" data-bs-target="#buy" type="button" role="tab">
-                    <i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i> خرید
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet" type="button" role="tab">
-                    <i class="fa-solid fa-wallet fa-fallback"></i><i data-lucide="wallet"></i> کیف پول
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">
-                    <i class="fa-solid fa-user fa-fallback"></i><i data-lucide="user"></i> پروفایل
-                </button>
-            </li>
-        </ul>
+            </div>
+        </div>
 
-        <!-- Tab Content -->
-        <div class="tab-content" id="mainTabsContent">
-            <!-- Services Tab -->
-            <div class="tab-pane fade show active" id="services" role="tabpanel">
-                <div id="services-list">
-                    <!-- Services will be loaded here -->
+        <div id="page-buy" class="page" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-shopping-cart"></i> خرید سرویس جدید
                 </div>
-                <div class="text-center mt-2">
-                    <small style="color: var(--color-muted)">برای جزئیات، روی هر سرویس بزنید</small>
-                </div>
-                <div class="text-center mt-3">
-                    <button class="btn btn-primary" onclick="refreshServices()">
-                        <i class="fa-solid fa-rotate-right fa-fallback"></i><i data-lucide="refresh-ccw"></i> بروزرسانی
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">انتخاب سرور:</label>
+                        <select class="form-select" id="server-select">
+                            <option value="">در حال بارگذاری...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">انتخاب دسته‌بندی:</label>
+                        <select class="form-select" id="category-select">
+                            <option value="">ابتدا سرور را انتخاب کنید</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">انتخاب پلن:</label>
+                        <input type="text" class="form-control mb-2" id="plan-filter" placeholder="جستجوی پلن...">
+                        <select class="form-select" id="plan-select">
+                            <option value="">ابتدا دسته‌بندی را انتخاب کنید</option>
+                        </select>
+                    </div>
+                    <div id="plan-details" style="display: none;">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>جزئیات پلن:</h6>
+                                <p id="plan-info">-</p>
+                                <h5>قیمت: <span id="plan-price">0</span> تومان</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100" id="buy-button" onclick="buyService()" disabled>
+                        <i class="fas fa-credit-card"></i> خرید سرویس
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Buy Tab -->
-            <div class="tab-pane fade" id="buy" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-shopping-cart"></i> خرید سرویس جدید
+        <div id="page-wallet" class="page" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-wallet"></i> مدیریت کیف پول
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h4>موجودی فعلی: <span id="wallet-balance-tab">0</span> تومان</h4>
                     </div>
-                    <div class="card-body">
-                        <!-- Removed inline categories grid as requested -->
-                        <div class="mb-3">
-                            <label class="form-label">انتخاب سرور:</label>
-                            <select class="form-select" id="server-select">
-                                <option value="">در حال بارگذاری...</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">انتخاب دسته‌بندی:</label>
-                            <select class="form-select" id="category-select">
-                                <option value="">ابتدا سرور را انتخاب کنید</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">انتخاب پلن:</label>
-                            <input type="text" class="form-control mb-2" id="plan-filter" placeholder="جستجوی پلن...">
-                            <select class="form-select" id="plan-select">
-                                <option value="">ابتدا دسته‌بندی را انتخاب کنید</option>
-                            </select>
-                        </div>
-                        <div id="plan-details" style="display: none;">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6>جزئیات پلن:</h6>
-                                    <p id="plan-info">-</p>
-                                    <h5>قیمت: <span id="plan-price">0</span> تومان</h5>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary w-100" id="buy-button" onclick="buyService()" disabled>
-                            <i class="fas fa-credit-card"></i> خرید سرویس
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" onclick="showTopUp()">
+                            <i class="fas fa-plus"></i> شارژ کیف پول
+                        </button>
+                        <button class="btn btn-info" onclick="showTransactions()">
+                            <i class="fas fa-history"></i> تاریخچه تراکنش‌ها
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Wallet Tab -->
-            <div class="tab-pane fade" id="wallet" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-wallet"></i> مدیریت کیف پول
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center mb-3">
-                            <h4>موجودی فعلی: <span id="wallet-balance-tab">0</span> تومان</h4>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-success" onclick="showTopUp()">
-                                <i class="fas fa-plus"></i> شارژ کیف پول
-                            </button>
-                            <button class="btn btn-info" onclick="showTransactions()">
-                                <i class="fas fa-history"></i> تاریخچه تراکنش‌ها
-                            </button>
-                        </div>
-                    </div>
+        <div id="page-profile" class="page" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-user"></i> پروفایل کاربری
                 </div>
-            </div>
-
-            <!-- Profile Tab -->
-            <div class="tab-pane fade" id="profile" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-user"></i> پروفایل کاربری
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">نام:</label>
+                        <input type="text" class="form-control" id="profile-name" readonly>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">نام:</label>
-                            <input type="text" class="form-control" id="profile-name" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">نام کاربری:</label>
-                            <input type="text" class="form-control" id="profile-username" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">شناسه کاربری:</label>
-                            <input type="text" class="form-control" id="profile-id" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">تاریخ عضویت:</label>
-                            <input type="text" class="form-control" id="profile-join-date" readonly>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-primary" onclick="showReferral()">
-                                <i class="fas fa-share"></i> لینک دعوت
-                            </button>
-                            <button class="btn btn-secondary" onclick="showSupport()">
-                                <i class="fas fa-headset"></i> پشتیبانی
-                            </button>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">نام کاربری:</label>
+                        <input type="text" class="form-control" id="profile-username" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">شناسه کاربری:</label>
+                        <input type="text" class="form-control" id="profile-id" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تاریخ عضویت:</label>
+                        <input type="text" class="form-control" id="profile-join-date" readonly>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="showReferral()">
+                            <i class="fas fa-share"></i> لینک دعوت
+                        </button>
+                        <button class="btn btn-secondary" onclick="showSupport()">
+                            <i class="fas fa-headset"></i> پشتیبانی
+                        </button>
                     </div>
                 </div>
             </div>
