@@ -5,8 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ربات VPN - پنل کاربری</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --tg-theme-bg-color: var(--tg-theme-bg-color, #ffffff);
@@ -18,72 +22,108 @@
             --tg-theme-secondary-bg-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
         }
 
+        /* Dark, cool theme variables */
+        :root {
+            --color-bg: #0f172a;                /* slate-900 */
+            --color-surface: #1e293b;           /* slate-800 */
+            --color-text: #e5e7eb;              /* gray-200 */
+            --color-muted: #e2e8f0;             /* slate-200 for higher contrast on dark */
+            --color-primary: #14b8a6;           /* teal-500 */
+            --color-primary-dark: #0e7490;      /* cyan-700 */
+            --color-primary-text: #ffffff;
+            --color-success: #10b981;           /* green-500 */
+            --color-danger: #ef4444;            /* red-500 */
+        }
+
+        html {
+            background-color: var(--color-bg) !important;
+        }
+
         body {
-            background-color: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-family: 'Vazirmatn', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
+            background-image:
+                radial-gradient(1200px 800px at 80% 0%, rgba(20,184,166,0.08), rgba(0,0,0,0) 45%),
+                radial-gradient(900px 600px at 10% 100%, rgba(14,116,144,0.08), rgba(0,0,0,0) 50%);
+            background-attachment: fixed;
+            padding-bottom: 72px; /* space for bottom nav */
         }
 
         .navbar {
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
+            background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
+            color: var(--color-primary-text);
             padding: 1rem;
             text-align: center;
             font-weight: bold;
             font-size: 1.2rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         .card {
-            background-color: var(--tg-theme-secondary-bg-color);
+            background-color: var(--color-surface);
             border: none;
             border-radius: 12px;
             margin: 1rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
         }
 
         .card-header {
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
+            background-color: var(--color-primary);
+            color: var(--color-primary-text);
             border-radius: 12px 12px 0 0;
             font-weight: bold;
         }
 
         .btn-primary {
-            background-color: var(--tg-theme-button-color);
-            border-color: var(--tg-theme-button-color);
-            border-radius: 8px;
+            background-color: var(--color-primary);
+            border-color: var(--color-primary);
+            border-radius: 10px;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
         }
 
         .btn-primary:hover {
-            background-color: var(--tg-theme-button-color);
+            background-color: var(--color-primary);
             opacity: 0.9;
         }
 
         .service-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 12px;
+            background: rgba(255,255,255,0.02);
+            color: var(--color-text);
+            border-radius: 16px;
             padding: 1rem;
-            margin: 0.5rem 0;
+            margin: 0.5rem 1rem;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+            border: 1px solid rgba(148,163,184,0.15);
         }
+        .service-card:active { transform: scale(0.99); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
 
         .wallet-card {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(20,184,166,0.35), rgba(14,116,144,0.25));
+            color: var(--color-primary-text);
+            border-radius: 16px;
             padding: 1rem;
-            margin: 0.5rem 0;
+            margin: 0.5rem 1rem;
+            border: 1px solid rgba(20,184,166,0.3);
         }
+        .wallet-amount { font-weight: 700; font-size: 1.8rem; }
 
-        .stats-card {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 8px 16px; }
+        .stat-mini {
+            background-color: var(--color-surface);
+            color: var(--color-text);
+            border: 1px solid rgba(148,163,184,0.15);
             border-radius: 12px;
-            padding: 1rem;
-            margin: 0.5rem 0;
+            padding: 12px;
+            display: flex; align-items: center; gap: 8px;
         }
+        .stat-mini svg { color: var(--color-primary); width: 20px; height: 20px; }
+        .stat-value { font-weight: 700; }
 
         .loading {
             text-align: center;
@@ -91,8 +131,8 @@
         }
 
         .spinner {
-            border: 3px solid var(--tg-theme-hint-color);
-            border-top: 3px solid var(--tg-theme-button-color);
+            border: 3px solid var(--color-muted);
+            border-top: 3px solid var(--color-primary);
             border-radius: 50%;
             width: 30px;
             height: 30px;
@@ -110,18 +150,18 @@
         }
 
         .nav-tabs {
-            border-bottom: 2px solid var(--tg-theme-hint-color);
+            border-bottom: 2px solid var(--color-muted);
         }
 
         .nav-tabs .nav-link {
-            color: var(--tg-theme-text-color);
+            color: var(--color-text);
             border: none;
             border-bottom: 2px solid transparent;
         }
 
         .nav-tabs .nav-link.active {
-            color: var(--tg-theme-button-color);
-            border-bottom-color: var(--tg-theme-button-color);
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
         }
 
         .qr-code {
@@ -135,13 +175,14 @@
         }
 
         .config-link {
-            background-color: var(--tg-theme-secondary-bg-color);
+            background-color: rgba(255,255,255,0.04);
             border-radius: 8px;
             padding: 0.5rem;
             margin: 0.5rem 0;
             word-break: break-all;
             font-family: monospace;
             font-size: 0.9rem;
+            color: var(--color-text);
         }
 
         .status-badge {
@@ -152,24 +193,155 @@
         }
 
         .status-active {
-            background-color: #28a745;
-            color: white;
+            background-color: var(--color-success);
+            color: #001a0d;
         }
 
         .status-expired {
-            background-color: #dc3545;
-            color: white;
+            background-color: var(--color-danger);
+            color: #330000;
         }
 
         .status-pending {
-            background-color: #ffc107;
-            color: black;
+            background-color: #f59e0b;
+            color: #1a0f00;
         }
+        /* Skeleton loader */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite;
+            border-radius: 8px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-line { height: 12px; margin: 8px 0; }
+        .skeleton-card { padding: 16px; margin: 8px 16px; border-radius: 12px; }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1055;
+        }
+        #toast.show { opacity: 1; }
+
+        /* Dark form controls and light buttons for better readability */
+        .form-control, .form-select {
+            background-color: #0b1220;
+            color: var(--color-text);
+            border: 1px solid rgba(148,163,184,0.25);
+        }
+        .form-control::placeholder {
+            color: #b6c2cf;
+        }
+        .btn-light {
+            background: rgba(255,255,255,0.08);
+            color: var(--color-text);
+            border: none;
+        }
+        .btn-light:hover {
+            background: rgba(255,255,255,0.14);
+        }
+        .modal-content {
+            background-color: var(--color-surface);
+            color: var(--color-text);
+        }
+        /* Wallet heading and values */
+        .wallet-card h5, .wallet-card h3, #wallet-balance, #wallet-balance-tab { color: var(--color-primary-text) !important; }
+
+        /* Ensure readable text on dark cards */
+        .card .card-body strong { color: var(--color-text) !important; }
+        #user-name, #user-username, #user-id, #user-join-date { color: var(--color-text) !important; }
+        .text-muted { color: var(--color-muted) !important; }
+        /* Brighten form labels and headings on dark cards */
+        .form-label, label { color: var(--color-text) !important; }
+        .card h1, .card h2, .card h3, .card h4, .card h5, .card h6 { color: var(--color-text) !important; }
+
+        /* Lucide + FA fallback */
+        .fa-fallback { margin-left: 4px; }
+        .lucide-icon { width: 18px; height: 18px; vertical-align: -3px; margin-left: 4px; }
+        .lucide-ready .fa-fallback { display: none !important; }
+
+        /* App container */
+        .app-container { max-width: 560px; margin: 0 auto; }
+
+        /* Bottom navigation */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(15,23,42,0.8);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(148,163,184,0.2);
+            padding: 8px 12px calc(env(safe-area-inset-bottom, 0) + 8px);
+            z-index: 100;
+        }
+        .bottom-nav .wrap { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .bottom-nav .item {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--color-muted); text-decoration: none; padding: 6px 0; border-radius: 10px;
+            transition: transform 120ms ease, background-color 150ms ease, color 150ms ease;
+        }
+        .bottom-nav .item .lucide-icon, .bottom-nav .item .fa-fallback { width: 20px; height: 20px; }
+        .bottom-nav .item.active { color: var(--color-primary); background: rgba(20,184,166,0.08); }
+        .bottom-nav .item.floating {
+            transform: translateY(-12px);
+            background: rgba(20,184,166,0.12);
+            color: var(--color-text);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            border-radius: 16px; padding: 6px 4px; border: 1px solid rgba(20,184,166,0.25);
+        }
+        .bottom-nav .item.floating.active {
+            background: var(--color-primary);
+            color: var(--color-primary-text);
+            border-color: transparent;
+        }
+        .bottom-nav .item.tapping { transform: scale(0.96); }
+        .bottom-nav .item.floating.tapping { transform: translateY(-14px) scale(0.96); }
+
+        /* Page transitions */
+        .page { opacity: 0; transform: translateY(8px); transition: opacity 200ms ease, transform 200ms ease; display: none; }
+        .page.visible { opacity: 1; transform: translateY(0); }
+        .page.leaving { opacity: 0; transform: translateY(8px); }
+
+        /* Hero banner */
+        .hero {
+            margin: 16px;
+            padding: 16px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(20,184,166,0.25), rgba(14,116,144,0.18));
+            border: 1px solid rgba(20,184,166,0.28);
+        }
+        .hero h5 { margin: 0 0 6px 0; }
+        .hero small { color: var(--color-muted); }
+        .hero .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .hero .actions .btn { border-radius: 999px; padding: 6px 12px; }
+
+        /* Category cards */
+        .categories-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .category-card {
+            border-radius: 14px; padding: 12px; background: var(--color-surface);
+            border: 1px solid rgba(148,163,184,0.15);
+            display: flex; align-items: center; gap: 10px; cursor: pointer;
+        }
+        .category-card:hover { border-color: rgba(20,184,166,0.4); }
+        .category-icon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; }
     </style>
 </head>
 <body>
     <div class="navbar">
-        <i class="fas fa-shield-alt"></i> ربات VPN - پنل کاربری
+        <i class="fa-solid fa-shield fa-fallback"></i><i data-lucide="shield"></i> ربات VPN - پنل کاربری
     </div>
 
     <div id="loading" class="loading">
@@ -177,8 +349,19 @@
         <p>در حال بارگذاری...</p>
     </div>
 
-    <div id="app" style="display: none;">
-        <!-- User Info Card -->
+    <div id="app" class="app-container" style="display: none;">
+        <!-- Home Header (only visible on Home page) -->
+        <div id="home-header">
+        <div class="hero">
+            <h5>سلام، <span id="hero-name">کاربر عزیز</span> 👋</h5>
+            <small>از اینجا سریع به بخش‌های مهم دسترسی داری.</small>
+            <div class="actions">
+                <button class="btn btn-light" onclick="switchToBuyTab()"><i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i> خرید سریع</button>
+                <button class="btn btn-light" onclick="switchToServicesTab()"><i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i> سرویس‌های من</button>
+                <button class="btn btn-light" onclick="showTopUp()"><i class="fa-solid fa-plus fa-fallback"></i><i data-lucide="plus"></i> شارژ کیف پول</button>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-user"></i> اطلاعات کاربر
@@ -211,167 +394,150 @@
         <div class="wallet-card">
             <div class="row">
                 <div class="col-8">
-                    <h5><i class="fas fa-wallet"></i> کیف پول</h5>
-                    <h3 id="wallet-balance">0 تومان</h3>
+                    <h5><i class="fa-solid fa-wallet fa-fallback"></i><i data-lucide="wallet"></i> کیف پول</h5>
+                    <h3 class="wallet-amount" id="wallet-balance">0 تومان</h3>
                 </div>
                 <div class="col-4 text-end">
                     <button class="btn btn-light btn-sm" onclick="showTopUp()">
-                        <i class="fas fa-plus"></i> شارژ
+                        <i class="fa-solid fa-plus fa-fallback"></i><i data-lucide="plus"></i> شارژ
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Stats Card -->
-        <div class="stats-card">
-            <div class="row text-center">
-                <div class="col-4">
-                    <h6>سرویس‌های فعال</h6>
-                    <h4 id="active-services">0</h4>
+        <!-- Stats Mini Cards -->
+        <div class="stats-grid">
+            <div class="stat-mini">
+                <i data-lucide="activity"></i>
+                <div>
+                    <div class="stat-value" id="active-services">0</div>
+                    <small class="text-muted">سرویس‌های فعال</small>
                 </div>
-                <div class="col-4">
-                    <h6>کل خریدها</h6>
-                    <h4 id="total-purchases">0</h4>
+            </div>
+            <div class="stat-mini">
+                <i data-lucide="shopping-cart"></i>
+                <div>
+                    <div class="stat-value" id="total-purchases">0</div>
+                    <small class="text-muted">کل خریدها</small>
                 </div>
-                <div class="col-4">
-                    <h6>کل هزینه</h6>
-                    <h4 id="total-spent">0 تومان</h4>
+            </div>
+            <div class="stat-mini">
+                <i data-lucide="banknote"></i>
+                <div>
+                    <div class="stat-value" id="total-spent">0 تومان</div>
+                    <small class="text-muted">کل هزینه</small>
                 </div>
             </div>
         </div>
+        </div>
 
-        <!-- Navigation Tabs -->
-        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="services-tab" data-bs-toggle="tab" data-bs-target="#services" type="button" role="tab">
-                    <i class="fas fa-server"></i> سرویس‌ها
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="buy-tab" data-bs-toggle="tab" data-bs-target="#buy" type="button" role="tab">
-                    <i class="fas fa-shopping-cart"></i> خرید
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="wallet-tab" data-bs-toggle="tab" data-bs-target="#wallet" type="button" role="tab">
-                    <i class="fas fa-wallet"></i> کیف پول
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">
-                    <i class="fas fa-user"></i> پروفایل
-                </button>
-            </li>
-        </ul>
-
-        <!-- Tab Content -->
-        <div class="tab-content" id="mainTabsContent">
-            <!-- Services Tab -->
-            <div class="tab-pane fade show active" id="services" role="tabpanel">
-                <div id="services-list">
-                    <!-- Services will be loaded here -->
-                </div>
-                <div class="text-center mt-3">
-                    <button class="btn btn-primary" onclick="refreshServices()">
-                        <i class="fas fa-sync"></i> بروزرسانی
-                    </button>
-                </div>
+        <!-- Pages instead of tabs -->
+        <div id="page-home" class="page" style="display:none;"></div>
+        <div id="page-services" class="page" style="display:none;">
+            <div id="services-list">
+                <!-- Services will be loaded here -->
             </div>
+            <div class="text-center mt-2">
+                <small style="color: var(--color-muted)">برای جزئیات، روی هر سرویس بزنید</small>
+            </div>
+            <div class="text-center mt-3">
+                <button class="btn btn-primary" onclick="refreshServices()">
+                    <i class="fa-solid fa-rotate-right fa-fallback"></i><i data-lucide="refresh-ccw"></i> بروزرسانی
+                </button>
+            </div>
+        </div>
 
-            <!-- Buy Tab -->
-            <div class="tab-pane fade" id="buy" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-shopping-cart"></i> خرید سرویس جدید
+        <div id="page-buy" class="page" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-shopping-cart"></i> خرید سرویس جدید
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">انتخاب سرور:</label>
+                        <select class="form-select" id="server-select">
+                            <option value="">در حال بارگذاری...</option>
+                        </select>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">انتخاب سرور:</label>
-                            <select class="form-select" id="server-select">
-                                <option value="">در حال بارگذاری...</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">انتخاب دسته‌بندی:</label>
-                            <select class="form-select" id="category-select">
-                                <option value="">ابتدا سرور را انتخاب کنید</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">انتخاب پلن:</label>
-                            <select class="form-select" id="plan-select">
-                                <option value="">ابتدا دسته‌بندی را انتخاب کنید</option>
-                            </select>
-                        </div>
-                        <div id="plan-details" style="display: none;">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6>جزئیات پلن:</h6>
-                                    <p id="plan-info">-</p>
-                                    <h5>قیمت: <span id="plan-price">0</span> تومان</h5>
-                                </div>
+                    <div class="mb-3">
+                        <label class="form-label">انتخاب دسته‌بندی:</label>
+                        <select class="form-select" id="category-select">
+                            <option value="">ابتدا سرور را انتخاب کنید</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">انتخاب پلن:</label>
+                        <input type="text" class="form-control mb-2" id="plan-filter" placeholder="جستجوی پلن...">
+                        <select class="form-select" id="plan-select">
+                            <option value="">ابتدا دسته‌بندی را انتخاب کنید</option>
+                        </select>
+                    </div>
+                    <div id="plan-details" style="display: none;">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>جزئیات پلن:</h6>
+                                <p id="plan-info">-</p>
+                                <h5>قیمت: <span id="plan-price">0</span> تومان</h5>
                             </div>
                         </div>
-                        <button class="btn btn-primary w-100" id="buy-button" onclick="buyService()" disabled>
-                            <i class="fas fa-credit-card"></i> خرید سرویس
+                    </div>
+                    <button class="btn btn-primary w-100" id="buy-button" onclick="buyService()" disabled>
+                        <i class="fas fa-credit-card"></i> خرید سرویس
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-wallet" class="page" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-wallet"></i> مدیریت کیف پول
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h4>موجودی فعلی: <span id="wallet-balance-tab">0</span> تومان</h4>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" onclick="showTopUp()">
+                            <i class="fas fa-plus"></i> شارژ کیف پول
+                        </button>
+                        <button class="btn btn-info" onclick="showTransactions()">
+                            <i class="fas fa-history"></i> تاریخچه تراکنش‌ها
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Wallet Tab -->
-            <div class="tab-pane fade" id="wallet" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-wallet"></i> مدیریت کیف پول
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center mb-3">
-                            <h4>موجودی فعلی: <span id="wallet-balance-tab">0</span> تومان</h4>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-success" onclick="showTopUp()">
-                                <i class="fas fa-plus"></i> شارژ کیف پول
-                            </button>
-                            <button class="btn btn-info" onclick="showTransactions()">
-                                <i class="fas fa-history"></i> تاریخچه تراکنش‌ها
-                            </button>
-                        </div>
-                    </div>
+        <div id="page-profile" class="page" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-user"></i> پروفایل کاربری
                 </div>
-            </div>
-
-            <!-- Profile Tab -->
-            <div class="tab-pane fade" id="profile" role="tabpanel">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-user"></i> پروفایل کاربری
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">نام:</label>
+                        <input type="text" class="form-control" id="profile-name" readonly>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">نام:</label>
-                            <input type="text" class="form-control" id="profile-name" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">نام کاربری:</label>
-                            <input type="text" class="form-control" id="profile-username" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">شناسه کاربری:</label>
-                            <input type="text" class="form-control" id="profile-id" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">تاریخ عضویت:</label>
-                            <input type="text" class="form-control" id="profile-join-date" readonly>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-primary" onclick="showReferral()">
-                                <i class="fas fa-share"></i> لینک دعوت
-                            </button>
-                            <button class="btn btn-secondary" onclick="showSupport()">
-                                <i class="fas fa-headset"></i> پشتیبانی
-                            </button>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">نام کاربری:</label>
+                        <input type="text" class="form-control" id="profile-username" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">شناسه کاربری:</label>
+                        <input type="text" class="form-control" id="profile-id" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تاریخ عضویت:</label>
+                        <input type="text" class="form-control" id="profile-join-date" readonly>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="showReferral()">
+                            <i class="fas fa-share"></i> لینک دعوت
+                        </button>
+                        <button class="btn btn-secondary" onclick="showSupport()">
+                            <i class="fas fa-headset"></i> پشتیبانی
+                        </button>
                     </div>
                 </div>
             </div>
@@ -390,6 +556,7 @@
                     <!-- Service details will be loaded here -->
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-light" onclick="copyConfigLink()"><i class="fas fa-copy"></i> کپی کانفیگ</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
                     <button type="button" class="btn btn-primary" onclick="renewService()">تمدید</button>
                 </div>
@@ -426,6 +593,55 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=20250906"></script>
+    <div id="toast"></div>
+
+    <!-- Transactions Modal -->
+    <div class="modal fade" id="transactionsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تاریخچه تراکنش‌ها</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="transactions-modal-body">
+                    <div class="skeleton-card skeleton">
+                        <div class="skeleton-line" style="width: 70%"></div>
+                        <div class="skeleton-line" style="width: 40%"></div>
+                        <div class="skeleton-line" style="width: 60%"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <div class="wrap">
+            <a class="item" href="#" onclick="switchToServicesTab(); return false;">
+                <i class="fa-solid fa-server fa-fallback"></i><i data-lucide="server"></i>
+                <small>سرویس‌ها</small>
+            </a>
+            <a class="item" href="#" onclick="switchToBuyTab(); return false;">
+                <i class="fa-solid fa-shopping-cart fa-fallback"></i><i data-lucide="shopping-cart"></i>
+                <small>خرید</small>
+            </a>
+            <a class="item floating active" href="#" onclick="setActiveBottom('home'); showPage('home'); return false;" style="text-align:center;">
+                <i class="fa-solid fa-house fa-fallback"></i><i data-lucide="home"></i>
+                <small>صفحه اصلی</small>
+            </a>
+            <a class="item" href="#" onclick="setActiveBottom('wallet'); showPage('wallet'); return false;">
+                <i class="fa-solid fa-wallet fa-fallback"></i><i data-lucide="wallet"></i>
+                <small>کیف پول</small>
+            </a>
+            <a class="item" href="#" onclick="setActiveBottom('profile'); showPage('profile'); return false;">
+                <i class="fa-solid fa-user fa-fallback"></i><i data-lucide="user"></i>
+                <small>پروفایل</small>
+            </a>
+        </div>
+    </nav>
 </body>
 </html>

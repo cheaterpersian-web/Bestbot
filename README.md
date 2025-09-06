@@ -215,10 +215,19 @@ The bot supports multiple VPN panel types:
 ### Production Deployment
 1. Set up a VPS with Docker support
 2. Configure environment variables
-3. Set up SSL certificates
-4. Configure reverse proxy (nginx)
+3. Point your domain DNS A/AAAA to your server IP
+4. Run the HTTPS stack with Caddy reverse proxy
 5. Set up monitoring and logging
 6. Configure backup strategy
+
+#### One-command HTTPS deploy
+```bash
+cp .env.example .env
+# edit .env and set DOMAIN, EMAIL, BOT_TOKEN, WEBAPP_URL
+bash scripts/deploy.sh
+```
+
+This will start Postgres, API, Bot, and Caddy. Caddy will automatically obtain/renew Let's Encrypt certificates for `DOMAIN` and proxy HTTPS → API.
 
 ### Monitoring
 - Health checks for all services
@@ -256,7 +265,7 @@ For support and questions:
 - Multi-panel support
 
 ### Future Roadmap
-- Telegram Mini App interface
+- Telegram Mini App interface (now included at `/`)
 - Advanced analytics dashboard
 - Automated backup system
 - Multi-language support
@@ -265,3 +274,21 @@ For support and questions:
 ---
 
 **Note**: This bot is designed for legitimate VPN service providers. Please ensure compliance with local laws and regulations in your jurisdiction.
+
+## 📱 Telegram Mini App (WebApp)
+
+The project includes a Telegram Mini App that users can open inside Telegram to manage their VPN services.
+
+- Entry route: `/` serves `app/webapp/static/index.html`
+- Static assets: `/static/*` from `app/webapp/static`
+- Backend API for WebApp: `app/webapp/api.py` under `/api/*`
+
+### Activation Steps
+1. Set environment variables in `.env`:
+   - `BOT_TOKEN=...` from BotFather
+   - `WEBAPP_URL=https://your.domain` (public HTTPS URL)
+2. Deploy API to a public HTTPS domain and ensure it serves the root page.
+3. Start the bot service. Users can type `/webapp` or `/app` to get a button that opens the Mini App (handled by `app/bot/routers/webapp_entry.py`).
+4. Optional: In BotFather, set a persistent menu button with your WebApp URL.
+
+The frontend sends `Authorization: Bearer <initData>` and the backend verifies it according to Telegram's HMAC rules in `verify_telegram_auth`.

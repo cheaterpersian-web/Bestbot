@@ -1,0 +1,19 @@
+{
+    email {$EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    @api path /health /openapi.json /docs* /redoc* /static* /api*
+    handle @api {
+        reverse_proxy api:8000
+    }
+
+    handle {
+        reverse_proxy api:8000
+    }
+
+    tls {$EMAIL}
+}
+
