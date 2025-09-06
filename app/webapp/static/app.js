@@ -650,6 +650,17 @@ function setActiveBottom(which) {
 
 function showPage(which) {
     const pages = ['services', 'buy', 'wallet', 'profile'];
+    const app = document.getElementById('app');
+    if (app) {
+        Array.from(app.children).forEach(child => {
+            if (child.classList && child.classList.contains('page')) {
+                child.style.display = 'none';
+            } else {
+                // Hide non-page blocks (hero, cards, etc.) when switching page
+                child.style.display = 'none';
+            }
+        });
+    }
     pages.forEach(p => {
         const el = document.getElementById(`page-${p}`);
         if (el) el.style.display = (p === which) ? '' : 'none';
