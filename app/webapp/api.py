@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Body
 from fastapi.responses import HTMLResponse, FileResponse
 from typing import Optional, List
 import json
 import hmac
 import hashlib
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from core.db import get_db_session
 from core.config import settings
@@ -14,7 +14,7 @@ from models.user import TelegramUser
 from models.service import Service
 from models.catalog import Server, Category, Plan
 from models.billing import Transaction
-from services.vpn_panel_service import VPNPanelService
+from services.purchases import create_service_after_payment
 
 
 router = APIRouter(prefix="/api", tags=["webapp"])
@@ -58,6 +58,17 @@ def verify_telegram_auth(authorization: str = Header(None)) -> dict:
         # Parse user data
         user_data_str = dict(kv_pairs).get("user", "{}")
         user_data = json.loads(user_data_str)
+        # Optional: check auth_date freshness (within 1 day)
+        try:
+            auth_date_str = dict(kv_pairs).get("auth_date")
+            if auth_date_str:
+                auth_ts = int(auth_date_str)
+                if abs(int(datetime.utcnow().timestamp()) - auth_ts) > 86400:
+                    raise HTTPException(status_code=401, detail="Auth data expired")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
         return user_data
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid init data")
@@ -101,10 +112,10 @@ async def get_user_stats(user_data: dict = Depends(verify_telegram_auth)):
         )).scalar() or 0
         
         return {
-            "wallet_balance": user.wallet_balance,
+            "wallet_balance": float(user.wallet_balance or 0),
             "active_services": active_services,
             "total_purchases": total_purchases,
-            "total_spent": user.total_spent
+            "total_spent": float(user.total_spent or 0)
         }
 
 
@@ -129,20 +140,20 @@ async def get_user_services(user_data: dict = Depends(verify_telegram_auth)):
             .order_by(Service.created_at.desc())
         )).scalars().all()
         
-        return [
-            {
+        result = []
+        for service in services:
+            result.append({
                 "id": service.id,
                 "remark": service.remark,
                 "is_active": service.is_active,
-                "purchased_at": service.purchased_at.isoformat(),
-                "expires_at": service.expires_at.isoformat(),
-                "traffic_gb": service.traffic_gb,
-                "used_traffic_gb": service.used_traffic_gb,
-                "config_link": service.config_link,
-                "qr_code": service.qr_code
-            }
-            for service in services
-        ]
+                "purchased_at": service.purchased_at.isoformat() if service.purchased_at else None,
+                "expires_at": service.expires_at.isoformat() if service.expires_at else None,
+                "traffic_gb": float(service.traffic_limit_gb or 0),
+                "used_traffic_gb": float(service.traffic_used_gb or 0),
+                "config_link": service.subscription_url,
+                "qr_code": None
+            })
+        return result
 
 
 @router.get("/servers")
@@ -161,8 +172,8 @@ async def get_servers(user_data: dict = Depends(verify_telegram_auth)):
             {
                 "id": server.id,
                 "name": server.name,
-                "location": server.location,
-                "status": server.status
+                "status": getattr(server, "sync_status", "unknown"),
+                "panel_type": getattr(server, "panel_type", "mock"),
             }
             for server in servers
         ]
@@ -172,26 +183,18 @@ async def get_servers(user_data: dict = Depends(verify_telegram_auth)):
 async def get_server_categories(server_id: int, user_data: dict = Depends(verify_telegram_auth)):
     """Get categories for a specific server"""
     async with get_db_session() as session:
-        from sqlalchemy import select
-        
-        categories = (await session.execute(
-            select(Category)
-            .where(
-                and_(
-                    Category.is_active == True,
-                    Category.server_id == server_id
-                )
-            )
+        from sqlalchemy import select, distinct
+
+        # Category does not have server_id; derive categories via plans mapped to this server
+        rows = await session.execute(
+            select(distinct(Category.id), Category.title, Category.description, Category.icon, Category.color)
+            .join(Plan, Plan.category_id == Category.id)
+            .where(and_(Category.is_active == True, Plan.server_id == server_id))
             .order_by(Category.sort_order)
-        )).scalars().all()
-        
+        )
         return [
-            {
-                "id": category.id,
-                "title": category.title,
-                "description": category.description
-            }
-            for category in categories
+            {"id": cid, "title": title, "description": desc, "icon": icon, "color": color}
+            for cid, title, desc, icon, color in rows.all()
         ]
 
 
@@ -228,7 +231,7 @@ async def get_category_plans(category_id: int, user_data: dict = Depends(verify_
 
 @router.post("/purchase")
 async def purchase_service(
-    plan_id: int,
+    payload: dict = Body(...),
     user_data: dict = Depends(verify_telegram_auth)
 ):
     """Purchase a new service"""
@@ -243,6 +246,7 @@ async def purchase_service(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        plan_id = int(payload.get("plan_id")) if payload and payload.get("plan_id") else None
         # Get plan
         plan = (await session.execute(
             select(Plan).where(Plan.id == plan_id)
@@ -252,53 +256,38 @@ async def purchase_service(
             raise HTTPException(status_code=404, detail="Plan not found")
         
         # Check if user has enough wallet balance
-        if user.wallet_balance < plan.price_irr:
+        if float(user.wallet_balance or 0) < float(plan.price_irr or 0):
             raise HTTPException(status_code=400, detail="Insufficient wallet balance")
         
         # Deduct from wallet
-        user.wallet_balance -= plan.price_irr
-        
-        # Create service
-        service = Service(
-            user_id=user.id,
-            plan_id=plan.id,
-            server_id=plan.category.server_id,
-            remark=f"Service from plan {plan.title}",
-            is_active=True,
-            purchased_at=datetime.utcnow(),
-            expires_at=datetime.utcnow() + timedelta(days=plan.duration_days),
-            traffic_gb=plan.traffic_gb
+        user.wallet_balance = float(user.wallet_balance or 0) - float(plan.price_irr or 0)
+
+        # Find server for plan
+        server = (await session.execute(select(Server).where(Server.id == plan.server_id))).scalar_one_or_none()
+        if not server:
+            raise HTTPException(status_code=404, detail="Server not found")
+
+        # Create service via panel
+        service = await create_service_after_payment(
+            session=session,
+            user=user,
+            plan=plan,
+            server=server,
+            remark=f"Service from plan {plan.title}"
         )
-        session.add(service)
         await session.flush()
-        
+
         # Create transaction
         transaction = Transaction(
             user_id=user.id,
-            service_id=service.id,
-            amount=plan.price_irr,
-            payment_method="wallet",
-            status="approved"
+            amount=float(plan.price_irr or 0),
+            type="purchase",
+            status="approved",
+            description=f"Purchase plan {plan.title}",
+            payment_gateway="wallet",
         )
         session.add(transaction)
-        
-        # Create VPN service on panel
-        try:
-            vpn_service = await VPNPanelService.create_service(
-                session=session,
-                service=service,
-                plan=plan
-            )
-            
-            # Update service with config details
-            service.config_link = vpn_service.get('config_link')
-            service.qr_code = vpn_service.get('qr_code')
-            service.uuid = vpn_service.get('uuid')
-            
-        except Exception as e:
-            print(f"Error creating VPN service: {e}")
-            # Service created but VPN config failed
-        
+
         return {
             "success": True,
             "service_id": service.id,
@@ -308,8 +297,7 @@ async def purchase_service(
 
 @router.post("/wallet/topup")
 async def wallet_topup(
-    amount: int,
-    payment_method: str,
+    payload: dict = Body(...),
     user_data: dict = Depends(verify_telegram_auth)
 ):
     """Request wallet top-up"""
@@ -324,6 +312,8 @@ async def wallet_topup(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        amount = int(payload.get("amount") or 0)
+        payment_method = (payload.get("payment_method") or "").strip() or "card_to_card"
         if amount < 10000:
             raise HTTPException(status_code=400, detail="Minimum amount is 10,000 IRR")
         
@@ -331,9 +321,10 @@ async def wallet_topup(
         transaction = Transaction(
             user_id=user.id,
             amount=amount,
-            payment_method=payment_method,
+            type="wallet_topup",
             status="pending",
-            description=f"Wallet top-up request"
+            description=f"Wallet top-up request",
+            payment_gateway=payment_method,
         )
         session.add(transaction)
         
@@ -418,24 +409,30 @@ async def renew_service(
             raise HTTPException(status_code=404, detail="Plan not found")
         
         # Check wallet balance
-        if user.wallet_balance < plan.price_irr:
+        if float(user.wallet_balance or 0) < float(plan.price_irr or 0):
             raise HTTPException(status_code=400, detail="Insufficient wallet balance")
         
         # Deduct from wallet
-        user.wallet_balance -= plan.price_irr
-        
+        user.wallet_balance = float(user.wallet_balance or 0) - float(plan.price_irr or 0)
+
         # Extend service
-        service.expires_at += timedelta(days=plan.duration_days)
-        service.traffic_gb += plan.traffic_gb
-        
+        if plan.duration_days:
+            if service.expires_at:
+                service.expires_at += timedelta(days=int(plan.duration_days))
+            else:
+                service.expires_at = datetime.utcnow() + timedelta(days=int(plan.duration_days))
+        if plan.traffic_gb:
+            current = float(service.traffic_limit_gb or 0)
+            service.traffic_limit_gb = current + float(plan.traffic_gb)
+
         # Create transaction
         transaction = Transaction(
             user_id=user.id,
-            service_id=service.id,
-            amount=plan.price_irr,
-            payment_method="wallet",
+            amount=float(plan.price_irr or 0),
+            type="purchase",
             status="approved",
-            description=f"Service renewal"
+            description=f"Service renewal",
+            payment_gateway="wallet",
         )
         session.add(transaction)
         
@@ -477,11 +474,11 @@ async def get_service_config(
             raise HTTPException(status_code=404, detail="Service not found")
         
         return {
-            "config_link": service.config_link,
-            "qr_code": service.qr_code,
+            "config_link": service.subscription_url,
+            "qr_code": None,
             "uuid": service.uuid,
             "remark": service.remark,
-            "expires_at": service.expires_at.isoformat(),
-            "traffic_gb": service.traffic_gb,
-            "used_traffic_gb": service.used_traffic_gb
+            "expires_at": service.expires_at.isoformat() if service.expires_at else None,
+            "traffic_gb": float(service.traffic_limit_gb or 0),
+            "used_traffic_gb": float(service.traffic_used_gb or 0)
         }

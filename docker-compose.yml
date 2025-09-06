@@ -58,7 +58,28 @@ services:
     command: bash -lc "bash /app/scripts/boot.sh bot"
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: vpn_bot_caddy
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_started
+
 volumes:
   pg_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local
 

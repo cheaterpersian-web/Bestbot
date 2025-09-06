@@ -47,8 +47,19 @@ APP_ENV=${APP_ENV:-production}
 read -rp "Log level (LOG_LEVEL) [INFO]: " LOG_LEVEL || true
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 
-read -rp "Public WebApp URL (HTTPS, e.g. https://yourdomain.com/api/) [skip]: " WEBAPP_URL || true
-WEBAPP_URL=${WEBAPP_URL:-}
+read -rp "Domain for HTTPS (DOMAIN, e.g. app.example.com) [skip]: " DOMAIN || true
+DOMAIN=${DOMAIN:-}
+read -rp "Admin email for Let's Encrypt (EMAIL) [skip]: " EMAIL || true
+EMAIL=${EMAIL:-}
+
+# If DOMAIN provided and WEBAPP_URL not specified, derive WEBAPP_URL
+if [[ -n "${DOMAIN}" ]]; then
+  DEFAULT_WEBAPP_URL="https://${DOMAIN}"
+else
+  DEFAULT_WEBAPP_URL=""
+fi
+read -rp "Public WebApp URL (HTTPS, e.g. https://yourdomain.com) [${DEFAULT_WEBAPP_URL}]: " WEBAPP_URL || true
+WEBAPP_URL=${WEBAPP_URL:-$DEFAULT_WEBAPP_URL}
 
 read -rp "Run docker compose up -d --build now? [Y/n]: " RUN_NOW || true
 RUN_NOW=${RUN_NOW:-Y}
@@ -72,6 +83,10 @@ DATABASE_URL=${DATABASE_URL}
 APP_ENV=${APP_ENV}
 LOG_LEVEL=${LOG_LEVEL}
 WEBAPP_URL=${WEBAPP_URL}
+
+# HTTPS / Caddy
+DOMAIN=${DOMAIN}
+EMAIL=${EMAIL}
 ENV
 
 echo "===> .env created"
