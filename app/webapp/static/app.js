@@ -124,7 +124,7 @@ async function loadUserStats() {
         if (response.ok) {
             const stats = await response.json();
             document.getElementById('wallet-balance').textContent = `${stats.wallet_balance.toLocaleString('fa-IR')} تومان`;
-            document.getElementById('wallet-balance-tab').textContent = `${stats.wallet_balance.toLocaleString('fa-IR')} تومان`;
+            document.getElementById('wallet-balance-tab').textContent = stats.wallet_balance.toLocaleString('fa-IR');
             document.getElementById('active-services').textContent = stats.active_services;
             document.getElementById('total-purchases').textContent = stats.total_purchases;
             document.getElementById('total-spent').textContent = `${stats.total_spent.toLocaleString('fa-IR')} تومان`;
