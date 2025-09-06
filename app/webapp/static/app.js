@@ -149,13 +149,14 @@ function displayServices() {
     if (services.length === 0) {
         servicesList.innerHTML = `
             <div class="text-center py-4">
-                <img class="empty-illustration mb-3" src="https://illustrations.popsy.co/gray/monitor.svg" alt="empty" width="120" height="120"/>
+                <img class="empty-illustration mb-3" src="/static/empty_services.svg" alt="empty" width="140" height="140"/>
                 <p class="text-muted">هیچ سرویس فعالی ندارید</p>
                 <button class="btn btn-primary" onclick="switchToBuyTab()">
                     <i data-lucide="shopping-cart"></i> خرید سرویس جدید
                 </button>
             </div>
         `;
+        try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
         return;
     }
     
@@ -206,6 +207,7 @@ function displayServices() {
         servicesList.appendChild(serviceCard);
         serviceCard.addEventListener('click', () => showServiceDetails(service.id));
     });
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
 }
 
 function showServicesSkeleton() {
