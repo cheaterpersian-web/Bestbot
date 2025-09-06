@@ -649,6 +649,16 @@ function setActiveBottom(which) {
     if (which === 'home') items[2]?.classList.add('active');
     if (which === 'wallet') items[3]?.classList.add('active');
     if (which === 'profile') items[4]?.classList.add('active');
+
+    // brief tap animation
+    try {
+        const idx = { services: 0, buy: 1, home: 2, wallet: 3, profile: 4 }[which];
+        const el = items[idx];
+        if (el) {
+            el.classList.add('tapping');
+            setTimeout(() => el.classList.remove('tapping'), 120);
+        }
+    } catch {}
 }
 
 function showPage(which) {
@@ -657,7 +667,9 @@ function showPage(which) {
     if (app) {
         Array.from(app.children).forEach(child => {
             if (child.classList && child.classList.contains('page')) {
-                child.style.display = 'none';
+                child.classList.remove('visible');
+                child.classList.add('leaving');
+                setTimeout(() => { child.style.display = 'none'; child.classList.remove('leaving'); }, 180);
             } else {
                 // Hide non-page blocks (hero, cards, etc.) when switching page
                 child.style.display = 'none';
@@ -666,11 +678,27 @@ function showPage(which) {
     }
     pages.forEach(p => {
         const el = document.getElementById(`page-${p}`);
-        if (el) el.style.display = (p === which) ? '' : 'none';
+        if (el) {
+            if (p === which) {
+                el.style.display = '';
+                requestAnimationFrame(() => el.classList.add('visible'));
+            } else {
+                el.style.display = 'none';
+                el.classList.remove('visible');
+            }
+        }
     });
     // Show home page special layout
     const home = document.getElementById('page-home');
-    if (home) home.style.display = (which === 'home') ? '' : 'none';
+    if (home) {
+        if (which === 'home') {
+            home.style.display = '';
+            requestAnimationFrame(() => home.classList.add('visible'));
+        } else {
+            home.classList.remove('visible');
+            home.style.display = 'none';
+        }
+    }
 
     // Trigger loaders per page to avoid empty views
     try {
