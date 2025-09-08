@@ -265,6 +265,17 @@ class ScheduledMessageService:
                             parse_mode=message.parse_mode,
                             disable_notification=message.disable_notification
                         )
+
+                    elif message.message_type == MessageType.FORWARD:
+                        # content contains JSON {from_chat_id, message_id}
+                        ref = json.loads(message.content)
+                        from_chat_id = ref.get("from_chat_id")
+                        source_message_id = ref.get("message_id")
+                        sent_msg = await bot.forward_message(
+                            chat_id=user.telegram_user_id,
+                            from_chat_id=from_chat_id,
+                            message_id=source_message_id
+                        )
                     
                     else:
                         # Fallback to text
