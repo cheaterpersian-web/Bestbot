@@ -1,6 +1,4 @@
-import os
 import shutil
-import subprocess
 import asyncio
 import gzip
 import json
@@ -47,12 +45,10 @@ class BackupService:
         
         # Parse database URL
         db_url = settings.database_url
-        if db_url.startswith("postgresql"):
-            await self._create_postgresql_backup(backup_path, db_url)
-        elif db_url.startswith("mysql"):
+        if db_url.startswith("mysql"):
             await self._create_mysql_backup(backup_path, db_url)
         else:
-            raise ValueError(f"Unsupported database type: {db_url}")
+            raise ValueError(f"Unsupported database type (MySQL only supported): {db_url}")
         
         # Compress if requested
         if compress:
@@ -130,62 +126,7 @@ class BackupService:
         async with aiofiles.open(backup_path, 'wb') as f:
             await f.write(stdout)
     
-    async def _create_postgresql_backup(self, backup_path: Path, db_url: str):
-        """Create PostgreSQL backup using pg_dump"""
-        
-        # Parse connection details
-        # Format: postgresql://user:pass@host:port/db
-        url_parts = db_url.replace("postgresql://", "").split("@")
-        if len(url_parts) != 2:
-            raise ValueError("Invalid PostgreSQL URL format")
-        
-        user_pass = url_parts[0].split(":")
-        if len(user_pass) != 2:
-            raise ValueError("Invalid PostgreSQL credentials format")
-        
-        user, password = user_pass
-        host_db = url_parts[1].split("/")
-        if len(host_db) != 2:
-            raise ValueError("Invalid PostgreSQL host/database format")
-        
-        host_port = host_db[0].split(":")
-        host = host_port[0]
-        port = host_port[1] if len(host_port) > 1 else "5432"
-        database = host_db[1].split("?")[0]  # Remove query parameters
-        
-        # Set password environment variable
-        env = os.environ.copy()
-        env["PGPASSWORD"] = password
-        
-        # Build pg_dump command
-        cmd = [
-            "pg_dump",
-            f"--host={host}",
-            f"--port={port}",
-            f"--username={user}",
-            "--verbose",
-            "--clean",
-            "--no-owner",
-            "--no-privileges",
-            database
-        ]
-        
-        # Execute backup
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env
-        )
-        
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode != 0:
-            raise Exception(f"PostgreSQL backup failed: {stderr.decode()}")
-        
-        # Write backup to file
-        async with aiofiles.open(backup_path, 'wb') as f:
-            await f.write(stdout)
+    # Non-MySQL backup paths are intentionally removed to enforce MySQL-only usage
     
     async def _compress_file(self, source_path: Path, target_path: str):
         """Compress file using gzip"""
@@ -223,14 +164,12 @@ class BackupService:
             await self._decompress_file(backup_path, decompressed_path)
             backup_path = decompressed_path
         
-        # Restore based on database type
+        # Restore based on database type (MySQL only)
         db_url = settings.database_url
-        if db_url.startswith("postgresql"):
-            await self._restore_postgresql_backup(backup_path, db_url)
-        elif db_url.startswith("mysql"):
+        if db_url.startswith("mysql"):
             await self._restore_mysql_backup(backup_path, db_url)
         else:
-            raise ValueError(f"Unsupported database type: {db_url}")
+            raise ValueError(f"Unsupported database type (MySQL only supported): {db_url}")
         
         return True
     
@@ -279,46 +218,7 @@ class BackupService:
             if process.returncode != 0:
                 raise Exception(f"MySQL restore failed: {stderr.decode()}")
     
-    async def _restore_postgresql_backup(self, backup_path: Path, db_url: str):
-        """Restore PostgreSQL backup"""
-        
-        # Parse connection details (same as backup)
-        url_parts = db_url.replace("postgresql://", "").split("@")
-        user_pass = url_parts[0].split(":")
-        user, password = user_pass
-        host_db = url_parts[1].split("/")
-        host_port = host_db[0].split(":")
-        host = host_port[0]
-        port = host_port[1] if len(host_port) > 1 else "5432"
-        database = host_db[1].split("?")[0]
-        
-        # Set password environment variable
-        env = os.environ.copy()
-        env["PGPASSWORD"] = password
-        
-        # Build psql command
-        cmd = [
-            "psql",
-            f"--host={host}",
-            f"--port={port}",
-            f"--username={user}",
-            "--dbname=postgres",  # Connect to postgres db first
-            "--quiet"
-        ]
-        
-        # Execute restore
-        async with aiofiles.open(backup_path, 'rb') as f:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=env
-            )
-            
-            stdout, stderr = await process.communicate(input=await f.read())
-            
-            if process.returncode != 0:
-                raise Exception(f"PostgreSQL restore failed: {stderr.decode()}")
+    # Non-MySQL restore paths are intentionally removed to enforce MySQL-only usage
     
     async def list_backups(self, backup_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """List available backups"""

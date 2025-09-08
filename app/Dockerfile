@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libjpeg62-turbo-dev \
     zlib1g-dev \
-    postgresql-client \
+    default-mysql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
