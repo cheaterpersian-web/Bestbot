@@ -58,76 +58,28 @@ A comprehensive, production-ready Telegram bot for selling VPN services with Per
 - Telegram Bot Token
 - VPN Panel API access (x-ui, 3x-ui, or Hiddify)
 
-## 🚀 Quick Start
+## 🚀 شروع سریع (فارسی)
 
-### 1. Clone the Repository
+### 1) پیش‌نیازها
+- Docker و Docker Compose
+- توکن ربات تلگرام (BotFather)
+
+### 2) نصب خودکار (توصیه‌شده)
 ```bash
-git clone <repository-url>
-cd vpn-telegram-bot
+bash scripts/setup.sh
 ```
+این اسکریپت فایل `.env` را می‌سازد، مقادیر را از شما می‌پرسد و در صورت تمایل کانتینرها را اجرا می‌کند.
 
-### 2. Environment Configuration
-Create a `.env` file in the root directory:
-
-```env
-# Telegram Bot
-BOT_TOKEN=your_telegram_bot_token_here
-ADMIN_IDS=[123456789,987654321]
-BOT_USERNAME=your_bot_username
-
-# Database (PostgreSQL)
-DATABASE_URL=postgresql+asyncpg://vpn_user:vpn_pass@db:5432/vpn_bot
-
-# Sales/Payments
-SALES_ENABLED=true
-AUTO_APPROVE_RECEIPTS=false
-MIN_TOPUP_AMOUNT=50000
-MAX_TOPUP_AMOUNT=50000000
-
-# Security
-ENABLE_FRAUD_DETECTION=true
-MAX_DAILY_TRANSACTIONS=10
-MAX_DAILY_AMOUNT=1000000
-
-# Referrals
-REFERRAL_PERCENT=10
-REFERRAL_FIXED=0
-
-# Payment Gateways
-ENABLE_STARS=false
-ENABLE_ZARINPAL=false
-ZARINPAL_MERCHANT_ID=
-
-# Misc
-STATUS_URL=https://your-status-page.com
-UPTIME_ROBOT_API_KEY=
-SUPPORT_CHANNEL=@your_support_channel
-```
-
-### 3. Start with Docker (v1.0.1)
+### 3) اجرای دستی (جایگزین)
 ```bash
-cp .env.example .env
-docker compose up -d --build
-```
-
-### 4. Notes on v1.0.1 Installer
-- Old "easy install" and MySQL/Redis stack have been removed.
-- New stack uses Docker Compose with PostgreSQL and Alembic migrations.
-- Configure your env via `.env` (see `.env.example`).
-
-### 5. Manual Setup (Alternative)
-```bash
-# Install dependencies
+# نصب وابستگی‌ها (لوکال)
 pip install -r app/requirements.txt
 
-# Initialize database (inside container)
+# اجرای استک داکر
+docker compose up -d --build
+
+# اجرای مایگریشن‌ها (داخل کانتینر)
 docker compose exec api alembic upgrade head
-
-# Start the bot
-python -m bot.main
-
-# Start API server (optional)
-uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
 ## 🏗️ Project Structure
@@ -210,24 +162,12 @@ The bot supports multiple VPN panel types:
 - Secure transaction approval
 - User blocking/unblocking
 
-## 🚀 Deployment
-
-### Production Deployment
-1. Set up a VPS with Docker support
-2. Configure environment variables
-3. Point your domain DNS A/AAAA to your server IP
-4. Run the HTTPS stack with Caddy reverse proxy
-5. Set up monitoring and logging
-6. Configure backup strategy
-
-#### One-command HTTPS deploy
-```bash
-cp .env.example .env
-# edit .env and set DOMAIN, EMAIL, BOT_TOKEN, WEBAPP_URL
-bash scripts/deploy.sh
-```
-
-This will start Postgres, API, Bot, and Caddy. Caddy will automatically obtain/renew Let's Encrypt certificates for `DOMAIN` and proxy HTTPS → API.
+## 🚀 استقرار (Production)
+1. روی سرور با پشتیبانی Docker مستقر کنید
+2. DNS دامنه را به سرور اشاره دهید (A/AAAA)
+3. در `.env` مقدارهای `DOMAIN`, `EMAIL`, `BOT_TOKEN`, `WEBAPP_URL` را تنظیم کنید
+4. سرویس‌ها را با `docker compose up -d --build` بالا بیاورید (سرویس `caddy` فعال است)
+5. Caddy به صورت خودکار SSL را از Let's Encrypt دریافت و تمدید می‌کند
 
 ### Monitoring
 - Health checks for all services
