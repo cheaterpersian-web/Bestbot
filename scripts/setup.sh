@@ -93,8 +93,20 @@ echo "===> .env created"
 
 if [[ "${RUN_NOW}" =~ ^[Yy]$ ]]; then
   echo "===> Starting docker compose (build + up)"
+  # Always build images for api/bot
   docker compose build --no-cache api bot
-  docker compose up -d
+
+  # Decide which services to start
+  SERVICES=(db api bot)
+  if [[ -n "${DOMAIN}" && -n "${EMAIL}" ]]; then
+    SERVICES+=(caddy)
+  else
+    echo "[setup] DOMAIN or EMAIL not set. Skipping Caddy (HTTPS)."
+    echo "[setup] You can enable HTTPS later by setting DOMAIN and EMAIL in .env and running:"
+    echo "        docker compose up -d caddy"
+  fi
+
+  docker compose up -d "${SERVICES[@]}"
   echo "===> Tail logs (Ctrl+C to stop)"
   docker compose logs -f bot
 else
