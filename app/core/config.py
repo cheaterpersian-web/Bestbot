@@ -56,7 +56,7 @@ class Settings(BaseSettings):
         return []
 
     # Database
-    database_url: str = "postgresql+asyncpg://vpn_user:vpn_pass@db:5432/vpn_bot"
+    database_url: str = "mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot"
 
     # Sales/Payments
     sales_enabled: bool = True

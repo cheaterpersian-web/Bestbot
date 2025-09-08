@@ -43,7 +43,7 @@ A comprehensive, production-ready Telegram bot for selling VPN services with Per
 
 ### 🔧 Technical Features
 - **🏗️ Modular Architecture**: Clean separation of concerns
-- **🗄️ Database**: PostgreSQL with optimized queries
+- **🗄️ Database**: MySQL 8 (utf8mb4)
 - **🔒 Security**: Receipt validation, anti-fraud detection
 - **🐳 Dockerized**: Complete stack with Bot + DB + API
 - **🔌 API Integrations**: x-ui, 3x-ui, Hiddify panel support
@@ -53,7 +53,7 @@ A comprehensive, production-ready Telegram bot for selling VPN services with Per
 ## 📋 Requirements
 
 - Python 3.11+
-- PostgreSQL 13+
+- MySQL 8+
 - Docker & Docker Compose (recommended)
 - Telegram Bot Token
 - VPN Panel API access (x-ui, 3x-ui, or Hiddify)

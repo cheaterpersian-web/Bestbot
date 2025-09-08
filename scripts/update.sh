@@ -161,9 +161,9 @@ run_migrations() {
     if [ "$RUN_MIGRATIONS" = true ]; then
         log_info "Running database migrations..."
         
-        # Wait for database to be ready
-        log_info "Waiting for database to be ready (PostgreSQL)..."
-        timeout 60 bash -c 'until docker compose exec -T db pg_isready -U ${POSTGRES_USER:-vpn_user} -d ${POSTGRES_DB:-vpn_bot}; do sleep 2; done'
+        # Wait for database to be ready (MySQL)
+        log_info "Waiting for database to be ready (MySQL)..."
+        timeout 60 bash -c 'until docker compose exec -T db sh -lc "mysqladmin ping -h localhost -u${MYSQL_USER:-vpn_user} -p${MYSQL_PASSWORD:-vpn_pass}"; do sleep 2; done'
         
         # Run migrations
         docker compose exec -T api alembic upgrade head

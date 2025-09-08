@@ -33,7 +33,7 @@ cp .env.example .env
 
 حداقل متغیرهای مهم:
 - `BOT_TOKEN`: توکن ربات تلگرام
-- `DATABASE_URL`: پیش‌فرض روی PostgreSQL داخل docker-compose تنظیم است
+- `DATABASE_URL`: پیش‌فرض روی MySQL داخل docker-compose تنظیم است
 - (اختیاری) `DOMAIN` و `EMAIL` برای فعال‌سازی HTTPS توسط Caddy
 
 ## 3) اجرای سرویس‌ها
@@ -84,11 +84,11 @@ docker compose up -d
 ```bash
 mkdir -p backups
 source .env
-docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip > backups/db_$(date +%F).sql.gz
+docker compose exec -T db sh -lc "mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE" | gzip > backups/db_$(date +%F).sql.gz
 ```
 
 ## 9) اجرای بدون Docker (برای توسعه)
-نیاز به Python 3.11+ و PostgreSQL دارید:
+نیاز به Python 3.11+ و MySQL دارید:
 ```bash
 pip install -r app/requirements.txt
 # تنظیم DATABASE_URL در .env برای اتصال خارج از کانتینر
