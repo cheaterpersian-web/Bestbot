@@ -15,11 +15,11 @@ services:
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER:-vpn_user} -p$${MYSQL_PASSWORD:-vpn_pass} || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent || mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD:-rootpass} --silent || mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER:-vpn_user} -p$${MYSQL_PASSWORD:-vpn_pass} --silent || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 12
+      start_period: 60s
     restart: unless-stopped
 
   api:
@@ -29,8 +29,6 @@ services:
     container_name: vpn_bot_api
     env_file:
       - ./.env
-    environment:
-      - DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot
     depends_on:
       db:
         condition: service_healthy
@@ -52,8 +50,6 @@ services:
     container_name: vpn_bot_worker
     env_file:
       - ./.env
-    environment:
-      - DATABASE_URL=mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot
     depends_on:
       db:
         condition: service_healthy
