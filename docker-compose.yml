@@ -2,20 +2,18 @@ version: '3.9'
 
 services:
   db:
-    image: mysql:8.4
+    image: mysql:8.0
     container_name: vpn_bot_mysql
-    command: ["mysqld", "--default-authentication-plugin=mysql_native_password", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    command: ["mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-vpn_bot}
-      MYSQL_USER: ${MYSQL_USER:-vpn_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-vpn_pass}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
     volumes:
       - db_data:/var/lib/mysql
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent || mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD:-rootpass} --silent || mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER:-vpn_user} -p$${MYSQL_PASSWORD:-vpn_pass} --silent || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot --password='' --silent || mysqladmin ping -h 127.0.0.1 --silent || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -29,6 +27,8 @@ services:
     container_name: vpn_bot_api
     env_file:
       - ./.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://root:@db:3306/${MYSQL_DATABASE:-vpn_bot}}
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +50,8 @@ services:
     container_name: vpn_bot_worker
     env_file:
       - ./.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://root:@db:3306/${MYSQL_DATABASE:-vpn_bot}}
     depends_on:
       db:
         condition: service_healthy
