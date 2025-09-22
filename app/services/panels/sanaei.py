@@ -17,6 +17,16 @@ class SanaeiPanelClient(PanelClient):
     def _base(self) -> str:
         return self.cfg.base_url.rstrip("/")
 
+    def _auth_headers(self) -> dict:
+        headers: dict = {
+            "Accept": "application/json, text/plain, */*",
+        }
+        if self.cfg.api_key:
+            # Try common API key header patterns
+            headers["Authorization"] = f"Bearer {self.cfg.api_key}"
+            headers.setdefault("X-API-Key", self.cfg.api_key)
+        return headers
+
     async def _login_get_cookie(self, client: httpx.AsyncClient) -> None:
         if self.cfg.auth_mode != "password" or not self.cfg.username or not self.cfg.password:
             return
@@ -37,13 +47,16 @@ class SanaeiPanelClient(PanelClient):
     async def _list_inbounds(self, client: httpx.AsyncClient) -> list[dict]:
         # Try multiple endpoints across 3x-ui variants
         candidates = [
+            "/panel/api/inbounds/list",
+            "/api/inbounds/list",
+            "/inbounds/list",
             "/xui/inbound/list",
             "/panel/inbound/list",
             "/panel/api/inbounds",
         ]
         for path in candidates:
             try:
-                r = await client.get(f"{self._base()}{path}")
+                r = await client.get(f"{self._base()}{path}", headers=self._auth_headers())
                 if r.status_code == 200:
                     data = r.json()
                     inbounds = data.get("obj") if isinstance(data, dict) else data
@@ -55,12 +68,15 @@ class SanaeiPanelClient(PanelClient):
 
     async def _get_inbound_detail(self, client: httpx.AsyncClient, inbound_id: int) -> dict:
         candidates = [
+            f"/panel/api/inbounds/get/{inbound_id}",
+            f"/api/inbounds/get/{inbound_id}",
+            f"/inbounds/get/{inbound_id}",
             f"/panel/api/inbound/{inbound_id}",
             f"/panel/api/inbounds/{inbound_id}",
         ]
         for path in candidates:
             try:
-                r = await client.get(f"{self._base()}{path}")
+                r = await client.get(f"{self._base()}{path}", headers=self._auth_headers())
                 if r.status_code == 200:
                     data = r.json()
                     return data.get("obj") if isinstance(data, dict) else data
@@ -92,18 +108,30 @@ class SanaeiPanelClient(PanelClient):
             "inboundId": str(inbound_id),
             "settings": _json.dumps({"clients": [client_obj]}),
         }
-        headers = {
-            "Accept": "application/json, text/plain, */*",
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        headers = self._auth_headers()
+        # Try JSON first, then form-encoded
+        json_payload = {
+            "id": str(inbound_id),
+            "inboundId": str(inbound_id),
+            "settings": {"clients": [client_obj]},
         }
+        form_headers = dict(headers)
+        form_headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
         endpoints = [
             "/panel/api/inbounds/addClient",
+            "/api/inbounds/addClient",
+            "/inbounds/addClient",
             "/xui/inbound/addClient",
             "/panel/inbound/addClient",
         ]
         for ep in endpoints:
             try:
-                resp = await client.post(f"{self._base()}{ep}", data=form_data, headers=headers)
+                # Try JSON
+                resp = await client.post(f"{self._base()}{ep}", json=json_payload, headers=headers)
+                if resp.status_code == 200:
+                    return
+                # Try form fallback
+                resp = await client.post(f"{self._base()}{ep}", data=form_data, headers=form_headers)
                 if resp.status_code == 200:
                     return
             except Exception:
