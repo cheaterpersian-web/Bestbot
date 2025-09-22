@@ -20,6 +20,7 @@ class SanaeiPanelClient(PanelClient):
     def _auth_headers(self) -> dict:
         headers: dict = {
             "Accept": "application/json, text/plain, */*",
+            "X-Requested-With": "XMLHttpRequest",
         }
         if self.cfg.api_key:
             # Try common API key header patterns
@@ -92,14 +93,31 @@ class SanaeiPanelClient(PanelClient):
         if traffic_gb and traffic_gb > 0:
             total_gb_bytes = int(traffic_gb) * 1024 * 1024 * 1024
 
+        # Detect inbound protocol to shape client object (vless/vmess use id=uuid, trojan uses password)
+        inbound_detail_proto = ""
+        try:
+            _det = await self._get_inbound_detail(client, inbound_id)
+            inbound_detail_proto = (_det.get("protocol") or "").lower()
+        except Exception:
+            inbound_detail_proto = ""
+        proto = inbound_detail_proto or "vless"
+
         client_obj = {
-            "id": user_uuid,
             "email": remark,
             "limitIp": 0,
             "totalGB": total_gb_bytes,
             "expiryTime": expiry_ts_ms,
             "enable": True,
         }
+        if proto == "trojan":
+            client_obj["password"] = user_uuid
+        else:
+            client_obj["id"] = user_uuid
+            # vmess uses alterId (xui ignores if not needed)
+            if proto == "vmess":
+                client_obj["alterId"] = 0
+            # vless optional flow field
+            client_obj.setdefault("flow", "")
 
         # Form-encoded per spec
         import json as _json
@@ -123,7 +141,8 @@ class SanaeiPanelClient(PanelClient):
             "totalGB": total_gb_bytes,
             "limitIp": 0,
             "flow": "",
-            "id": user_uuid,
+            # protocol-specific id/password
+            ("password" if proto == "trojan" else "id"): user_uuid,
         }
         form_headers = dict(headers)
         form_headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
@@ -137,23 +156,7 @@ class SanaeiPanelClient(PanelClient):
         ]
 
         async def _verify_added() -> bool:
-            # Try checking by email via known endpoints
-            ver_candidates = [
-                f"/panel/api/inbounds/getClientTraffics/{remark}",
-                f"/api/inbounds/getClientTraffics/{remark}",
-                f"/inbounds/getClientTraffics/{remark}",
-                f"/getClientTraffics/{remark}",
-            ]
-            for v in ver_candidates:
-                try:
-                    vr = await client.get(f"{self._base()}{v}", headers=self._auth_headers())
-                    if vr.status_code == 200:
-                        data = vr.json()
-                        if data:
-                            return True
-                except Exception:
-                    continue
-            # Fallback: fetch inbound detail and scan clients
+            # Prefer authoritative source: inbound detail -> settings.clients contains our entry
             detail = await self._get_inbound_detail(client, inbound_id)
             try:
                 settings = detail.get("settings") or {}
@@ -164,7 +167,9 @@ class SanaeiPanelClient(PanelClient):
                 if isinstance(clients, list):
                     for c in clients:
                         try:
-                            if (c.get("email") == remark) or (c.get("id") == user_uuid):
+                            cid = c.get("id") or c.get("uuid") or c.get("password")
+                            cmail = c.get("email")
+                            if (cid == user_uuid) or (cmail == remark):
                                 return True
                         except Exception:
                             continue
