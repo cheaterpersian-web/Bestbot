@@ -713,7 +713,7 @@ async def add_plan_start(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_category_id)
 
 
-@router.message(AddPlanStates.waiting_category_id, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
+@router.message(AddPlanStates.waiting_category_id)
 async def add_plan_cat(message: Message, state: FSMContext):
     try:
         await state.update_data(category_id=_parse_int(message.text))
@@ -724,7 +724,7 @@ async def add_plan_cat(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_server_id)
 
 
-@router.message(AddPlanStates.waiting_server_id, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
+@router.message(AddPlanStates.waiting_server_id)
 async def add_plan_server(message: Message, state: FSMContext):
     try:
         await state.update_data(server_id=_parse_int(message.text))
@@ -742,7 +742,7 @@ async def add_plan_title(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_price)
 
 
-@router.message(AddPlanStates.waiting_price, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
+@router.message(AddPlanStates.waiting_price)
 async def add_plan_price(message: Message, state: FSMContext):
     try:
         await state.update_data(price_irr=_parse_int(message.text))
@@ -753,7 +753,7 @@ async def add_plan_price(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_duration)
 
 
-@router.message(AddPlanStates.waiting_duration, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
+@router.message(AddPlanStates.waiting_duration)
 async def add_plan_duration(message: Message, state: FSMContext):
     try:
         await state.update_data(duration_days=_parse_int(message.text))
@@ -764,11 +764,18 @@ async def add_plan_duration(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_traffic)
 
 
-@router.message(AddPlanStates.waiting_traffic, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
+@router.message(AddPlanStates.waiting_traffic)
 async def add_plan_traffic(message: Message, state: FSMContext):
     data = await state.get_data()
     try:
-        traffic = _parse_int(message.text)
+        # Accept inputs like "10", "۱۰", "10 گیگ", "10GB", with spaces
+        cleaned = (message.text or "").strip().translate(_DIGIT_TRANSLATION)
+        # remove non-digits at ends
+        import re
+        m = re.search(r"(\d+)", cleaned)
+        if not m:
+            raise ValueError
+        traffic = int(m.group(1))
     except Exception:
         await message.answer("عدد نامعتبر.")
         return
