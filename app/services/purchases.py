@@ -53,6 +53,7 @@ async def create_service_after_payment(session: AsyncSession, user: TelegramUser
         subscription_url=result.subscription_url,
         expires_at=expires_at,
         is_active=True,
+        traffic_limit_gb=float(plan.traffic_gb or 0) if plan.traffic_gb else None,
     )
     session.add(service)
     # award referral bonus if applicable

@@ -157,12 +157,20 @@ async def get_user_services(user_data: dict = Depends(verify_telegram_auth)):
                         username=getattr(server, "auth_username", None),
                         password=getattr(server, "auth_password", None),
                     )
-                    usage = await client.get_usage(service.remark or service.uuid)
-                    used_gb = float(usage.get("used_gb", used_gb))
-                    # Prefer panel total if provided
-                    panel_total = usage.get("total_gb")
-                    if panel_total is not None:
-                        total_gb = float(panel_total)
+                    # Prefer querying by email/remark when present, otherwise by uuid
+                    query_key = service.remark or service.uuid
+                    usage = await client.get_usage(query_key)
+                    if isinstance(usage, dict):
+                        used_from_panel = usage.get("used_gb")
+                        total_from_panel = usage.get("total_gb")
+                        if used_from_panel is not None:
+                            used_gb = float(used_from_panel)
+                        # Only override total if panel provides a meaningful (>0) value; otherwise keep DB/plan
+                        try:
+                            if total_from_panel is not None and float(total_from_panel) > 0:
+                                total_gb = float(total_from_panel)
+                        except Exception:
+                            pass
             except Exception:
                 pass
 
