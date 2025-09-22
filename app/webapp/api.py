@@ -447,15 +447,39 @@ async def renew_service(
         # Deduct from wallet
         user.wallet_balance = float(user.wallet_balance or 0) - float(plan.price_irr or 0)
 
-        # Extend service
-        if plan.duration_days:
+        # Extend service (DB)
+        add_days = int(plan.duration_days or 0)
+        add_gb = int(plan.traffic_gb or 0)
+        if add_days:
             if service.expires_at:
-                service.expires_at += timedelta(days=int(plan.duration_days))
+                service.expires_at += timedelta(days=add_days)
             else:
-                service.expires_at = datetime.utcnow() + timedelta(days=int(plan.duration_days))
-        if plan.traffic_gb:
+                service.expires_at = datetime.utcnow() + timedelta(days=add_days)
+        if add_gb:
             current = float(service.traffic_limit_gb or 0)
-            service.traffic_limit_gb = current + float(plan.traffic_gb)
+            service.traffic_limit_gb = current + float(add_gb)
+
+        # Propagate to panel
+        try:
+            server = (await session.execute(select(Server).where(Server.id == service.server_id))).scalar_one_or_none()
+            if server:
+                client = get_panel_client_for_server(
+                    base_url=server.api_base_url,
+                    panel_type=server.panel_type,
+                    auth_mode=getattr(server, "auth_mode", "apikey"),
+                    api_key=server.api_key or "",
+                    username=getattr(server, "auth_username", None),
+                    password=getattr(server, "auth_password", None),
+                )
+                # Update expiry
+                if add_days:
+                    await client.renew_service(service.remark or service.uuid, add_days=add_days)
+                # Update traffic
+                if add_gb:
+                    await client.add_traffic(service.remark or service.uuid, add_gb=add_gb)
+        except Exception:
+            # Ignore panel errors to not block DB renewal; UI will fetch live usage later
+            pass
 
         # Create transaction
         transaction = Transaction(

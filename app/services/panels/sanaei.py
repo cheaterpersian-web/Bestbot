@@ -267,10 +267,114 @@ class SanaeiPanelClient(PanelClient):
             return CreateServiceResult(uuid=user_uuid, subscription_url=link)
 
     async def renew_service(self, uuid: str, add_days: int) -> None:
-        return None
+        identifier = uuid
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            await self._login_get_cookie(client)
+            # Find client across inbounds
+            inbounds = await self._list_inbounds(client)
+            for ib in inbounds:
+                ib_id = ib.get("id")
+                if ib_id is None:
+                    continue
+                detail = await self._get_inbound_detail(client, int(ib_id))
+                try:
+                    import json as _json
+                    settings = detail.get("settings") or {}
+                    if isinstance(settings, str):
+                        settings = _json.loads(settings) or {}
+                    clients = settings.get("clients") or []
+                    for c in clients:
+                        cid = c.get("id") or c.get("uuid") or c.get("password")
+                        cmail = c.get("email")
+                        if cid == identifier or cmail == identifier:
+                            # Compute new expiry
+                            import time as _time
+                            cur_exp = int(c.get("expiryTime") or 0)
+                            now_ms = int(_time.time() * 1000)
+                            base_ms = cur_exp if cur_exp and cur_exp > now_ms else now_ms
+                            new_exp_ms = base_ms + int(add_days) * 86400 * 1000
+                            # Build update payload
+                            upd = {
+                                "email": cmail or (c.get("email") or identifier),
+                                "enable": c.get("enable", True),
+                                "limitIp": int(c.get("limitIp") or 0),
+                                "totalGB": int(c.get("totalGB") or c.get("total") or 0),
+                                "expiryTime": new_exp_ms,
+                                "flow": c.get("flow") or "",
+                            }
+                            if c.get("password"):
+                                upd["password"] = c.get("password")
+                                client_id = c.get("password")
+                            else:
+                                upd["id"] = c.get("id") or c.get("uuid") or identifier
+                                client_id = upd["id"]
+                            # Try updateClient endpoints
+                            eps = [
+                                f"/panel/api/inbounds/updateClient/{client_id}",
+                                f"/api/inbounds/updateClient/{client_id}",
+                                f"/inbounds/updateClient/{client_id}",
+                                f"/updateClient/{client_id}",
+                            ]
+                            for ep in eps:
+                                try:
+                                    r = await client.post(f"{self._base()}{ep}", json=upd, headers=self._auth_headers())
+                                    if r.status_code == 200:
+                                        return
+                                except Exception:
+                                    continue
+            # If not found or update failed, do nothing (non-fatal)
+            return None
 
     async def add_traffic(self, uuid: str, add_gb: int) -> None:
-        return None
+        identifier = uuid
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            await self._login_get_cookie(client)
+            inbounds = await self._list_inbounds(client)
+            for ib in inbounds:
+                ib_id = ib.get("id")
+                if ib_id is None:
+                    continue
+                detail = await self._get_inbound_detail(client, int(ib_id))
+                try:
+                    import json as _json
+                    settings = detail.get("settings") or {}
+                    if isinstance(settings, str):
+                        settings = _json.loads(settings) or {}
+                    clients = settings.get("clients") or []
+                    for c in clients:
+                        cid = c.get("id") or c.get("uuid") or c.get("password")
+                        cmail = c.get("email")
+                        if cid == identifier or cmail == identifier:
+                            cur_total = int(c.get("totalGB") or c.get("total") or 0)
+                            new_total = cur_total + int(add_gb) * 1024 * 1024 * 1024
+                            upd = {
+                                "email": cmail or (c.get("email") or identifier),
+                                "enable": c.get("enable", True),
+                                "limitIp": int(c.get("limitIp") or 0),
+                                "totalGB": new_total,
+                                "expiryTime": int(c.get("expiryTime") or 0),
+                                "flow": c.get("flow") or "",
+                            }
+                            if c.get("password"):
+                                upd["password"] = c.get("password")
+                                client_id = c.get("password")
+                            else:
+                                upd["id"] = c.get("id") or c.get("uuid") or identifier
+                                client_id = upd["id"]
+                            eps = [
+                                f"/panel/api/inbounds/updateClient/{client_id}",
+                                f"/api/inbounds/updateClient/{client_id}",
+                                f"/inbounds/updateClient/{client_id}",
+                                f"/updateClient/{client_id}",
+                            ]
+                            for ep in eps:
+                                try:
+                                    r = await client.post(f"{self._base()}{ep}", json=upd, headers=self._auth_headers())
+                                    if r.status_code == 200:
+                                        return
+                                except Exception:
+                                    continue
+            return None
 
     async def get_usage(self, uuid: str) -> dict:
         identifier = uuid  # may be email(remark) or uuid
