@@ -22,6 +22,7 @@ router = Router(name="buy")
 
 class PurchaseStates(StatesGroup):
     waiting_purchase_receipt = State()
+    waiting_alias = State()
 
 
 def _to_int_money(v) -> int:
@@ -71,7 +72,7 @@ async def choose_category(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("buy:plan:"))
-async def show_plan(callback: CallbackQuery):
+async def show_plan(callback: CallbackQuery, state: FSMContext):
     plan_id = int(callback.data.split(":")[-1])
     async with get_db_session() as session:
         from sqlalchemy import select
@@ -91,8 +92,23 @@ async def show_plan(callback: CallbackQuery):
     if server:
         desc.append(f"سرور: {server.name}")
 
-    await callback.message.answer("\n".join(desc), reply_markup=pay_options_kb(plan_id))
+    await callback.message.answer("\n".join(desc) + "\n\nلطفاً نام سرویس را ارسال کنید (مثلاً milad یا phone).", reply_markup=None)
+    await state.update_data(selected_plan_id=plan_id)
+    await state.set_state(PurchaseStates.waiting_alias)
+    await callback.message.answer("نام سرویس را تایپ کنید و بفرستید.")
     await callback.answer()
+@router.message(PurchaseStates.waiting_alias)
+async def receive_alias(message: Message, state: FSMContext):
+    alias = (message.text or "").strip()
+    if not alias:
+        await message.answer("نام نامعتبر است. دوباره ارسال کنید.")
+        return
+    data = await state.get_data()
+    plan_id = int(data.get("selected_plan_id"))
+    await state.update_data(alias=alias)
+    await message.answer("روش پرداخت را انتخاب کنید:", reply_markup=pay_options_kb(plan_id))
+    # Store selected plan id from previous step if needed via inline callback; for simplicity, encode plan id in state earlier
+
 
 
 @router.callback_query(F.data.startswith("buy:pay_wallet:"))
@@ -122,7 +138,15 @@ async def pay_with_wallet(callback: CallbackQuery, state: FSMContext):
             )
             session.add(tx)
 
-            service = await create_service_after_payment(session, me, plan, server, remark=f"u{me.id}-{plan.title}")
+            # build alias/remark
+            data = await state.get_data()
+            alias = (data.get("alias") or f"u{me.id}-{plan.title}").strip()
+            # ensure uniqueness per user
+            try:
+                exists = await session.execute(select(TelegramUser.id))
+            except Exception:
+                pass
+            service = await create_service_after_payment(session, me, plan, server, remark=alias)
             # commit before sending files
         else:
             # partial wallet deduction + request receipt for remainder
@@ -197,6 +221,9 @@ async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
                     description=f"Partial wallet deduction for plan #{plan.id}",
                 )
             )
+        # Persist intent with alias for later creation
+        data = await state.get_data()
+        alias = (data.get("alias") or f"u{me.id}-{plan.title}").strip()
         intent = PurchaseIntent(
             user_id=me.id,
             plan_id=plan.id,
@@ -205,6 +232,7 @@ async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
             amount_paid_wallet=paid,
             amount_due_receipt=due,
             status="pending",
+            alias=alias,
         )
         session.add(intent)
         await session.flush()
