@@ -55,8 +55,8 @@ class Settings(BaseSettings):
                 return []
         return []
 
-    # Database
-    database_url: str = "mysql+aiomysql://vpn_user:vpn_pass@db:3306/vpn_bot"
+    # Database (default: root user without password, inside docker network)
+    database_url: str = "mysql+aiomysql://root:@db:3306/vpn_bot"
 
     # Sales/Payments
     sales_enabled: bool = True

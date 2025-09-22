@@ -4,10 +4,11 @@ services:
   db:
     image: mysql:8.0
     container_name: vpn_bot_mysql
-    command: ["mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    command: ["mysqld", "--default-authentication-plugin=mysql_native_password", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-vpn_bot}
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_ROOT_HOST: "%"
     volumes:
       - db_data:/var/lib/mysql
     ports:
@@ -28,7 +29,7 @@ services:
     env_file:
       - ./.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://root:@db:3306/${MYSQL_DATABASE:-vpn_bot}}
+      DATABASE_URL: mysql+aiomysql://root:@db:3306/${MYSQL_DATABASE:-vpn_bot}
     depends_on:
       db:
         condition: service_healthy
@@ -51,7 +52,7 @@ services:
     env_file:
       - ./.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://root:@db:3306/${MYSQL_DATABASE:-vpn_bot}}
+      DATABASE_URL: mysql+aiomysql://root:@db:3306/${MYSQL_DATABASE:-vpn_bot}
     depends_on:
       db:
         condition: service_healthy
