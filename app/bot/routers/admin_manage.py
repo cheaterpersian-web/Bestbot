@@ -15,6 +15,15 @@ from models.user import TelegramUser
 router = Router(name="admin_manage")
 
 
+# Utilities: normalize Persian/Arabic digits to ASCII and parse integers safely
+_DIGIT_TRANSLATION = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def _parse_int(text: str) -> int:
+    t = (text or "").strip().translate(_DIGIT_TRANSLATION)
+    return int(t)
+
+
 async def _is_admin(telegram_id: int) -> bool:
     if telegram_id in set(settings.admin_ids):
         return True
@@ -704,16 +713,24 @@ async def add_plan_start(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_category_id)
 
 
-@router.message(AddPlanStates.waiting_category_id, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_category_id, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
 async def add_plan_cat(message: Message, state: FSMContext):
-    await state.update_data(category_id=int(message.text))
+    try:
+        await state.update_data(category_id=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
     await message.answer("ID سرور را وارد کنید (\n/list_servers برای مشاهده)")
     await state.set_state(AddPlanStates.waiting_server_id)
 
 
-@router.message(AddPlanStates.waiting_server_id, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_server_id, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
 async def add_plan_server(message: Message, state: FSMContext):
-    await state.update_data(server_id=int(message.text))
+    try:
+        await state.update_data(server_id=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
     await message.answer("عنوان پلن را وارد کنید")
     await state.set_state(AddPlanStates.waiting_title)
 
@@ -725,24 +742,36 @@ async def add_plan_title(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_price)
 
 
-@router.message(AddPlanStates.waiting_price, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_price, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
 async def add_plan_price(message: Message, state: FSMContext):
-    await state.update_data(price_irr=int(message.text))
+    try:
+        await state.update_data(price_irr=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
     await message.answer("مدت (روز) را وارد کنید یا 0 اگر حجمی است")
     await state.set_state(AddPlanStates.waiting_duration)
 
 
-@router.message(AddPlanStates.waiting_duration, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_duration, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
 async def add_plan_duration(message: Message, state: FSMContext):
-    await state.update_data(duration_days=int(message.text))
+    try:
+        await state.update_data(duration_days=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
     await message.answer("حجم (گیگ) را وارد کنید یا 0 اگر زمانی است")
     await state.set_state(AddPlanStates.waiting_traffic)
 
 
-@router.message(AddPlanStates.waiting_traffic, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_traffic, F.text.regexp(r"^[0-9۰-۹٠-٩]+$"))
 async def add_plan_traffic(message: Message, state: FSMContext):
     data = await state.get_data()
-    traffic = int(message.text)
+    try:
+        traffic = _parse_int(message.text)
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
     async with get_db_session() as session:
         p = Plan(
             category_id=data["category_id"],
