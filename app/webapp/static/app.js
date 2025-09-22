@@ -379,10 +379,18 @@ async function buyService() {
     
     const plan = plans.find(p => p.id == planId);
     if (!plan) return;
-    const alias = (document.getElementById('alias-input')?.value || '').trim();
+    const aliasInput = document.getElementById('alias-input');
+    const alias = (aliasInput?.value || '').trim();
+    if (!alias) {
+        showError('لطفاً نام سرویس را وارد کنید');
+        try { aliasInput.classList.add('is-invalid'); aliasInput.focus(); } catch {}
+        return;
+    } else {
+        try { aliasInput.classList.remove('is-invalid'); } catch {}
+    }
     
     // Show confirmation
-    const confirmed = confirm(`آیا می‌خواهید پلن "${plan.title}" را به قیمت ${plan.price_irr.toLocaleString('fa-IR')} تومان خریداری کنید؟`);
+    const confirmed = confirm(`آیا می‌خواهید پلن "${plan.title}" را به قیمت ${plan.price_irr.toLocaleString('fa-IR')} تومان با نام سرویس "${alias}" خریداری کنید؟`);
     
     if (confirmed) {
         try {
