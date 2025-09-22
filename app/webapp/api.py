@@ -15,6 +15,7 @@ from models.service import Service
 from models.catalog import Server, Category, Plan
 from models.billing import Transaction
 from services.purchases import create_service_after_payment
+from services.panels.factory import get_panel_client_for_server
 
 
 router = APIRouter(prefix="/api", tags=["webapp"])
@@ -142,14 +143,37 @@ async def get_user_services(user_data: dict = Depends(verify_telegram_auth)):
         
         result = []
         for service in services:
+            # Fetch live usage from panel when possible
+            used_gb = float(service.traffic_used_gb or 0)
+            total_gb = float(service.traffic_limit_gb or 0)
+            try:
+                server = (await session.execute(select(Server).where(Server.id == service.server_id))).scalar_one_or_none()
+                if server:
+                    client = get_panel_client_for_server(
+                        base_url=server.api_base_url,
+                        panel_type=server.panel_type,
+                        auth_mode=getattr(server, "auth_mode", "apikey"),
+                        api_key=server.api_key or "",
+                        username=getattr(server, "auth_username", None),
+                        password=getattr(server, "auth_password", None),
+                    )
+                    usage = await client.get_usage(service.remark or service.uuid)
+                    used_gb = float(usage.get("used_gb", used_gb))
+                    # Prefer panel total if provided
+                    panel_total = usage.get("total_gb")
+                    if panel_total is not None:
+                        total_gb = float(panel_total)
+            except Exception:
+                pass
+
             result.append({
                 "id": service.id,
                 "remark": service.remark,
                 "is_active": service.is_active,
                 "purchased_at": service.purchased_at.isoformat() if service.purchased_at else None,
                 "expires_at": service.expires_at.isoformat() if service.expires_at else None,
-                "traffic_gb": float(service.traffic_limit_gb or 0),
-                "used_traffic_gb": float(service.traffic_used_gb or 0),
+                "traffic_gb": total_gb,
+                "used_traffic_gb": used_gb,
                 "config_link": service.subscription_url,
                 "qr_code": None
             })

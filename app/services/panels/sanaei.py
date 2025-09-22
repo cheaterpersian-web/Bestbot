@@ -273,7 +273,58 @@ class SanaeiPanelClient(PanelClient):
         return None
 
     async def get_usage(self, uuid: str) -> dict:
-        return {"used_gb": 0, "remaining_gb": 0, "days_left": 0}
+        identifier = uuid  # may be email(remark) or uuid
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            await self._login_get_cookie(client)
+            # Try getClientTraffics by identifier (email)
+            candidates = [
+                f"/panel/api/inbounds/getClientTraffics/{identifier}",
+                f"/api/inbounds/getClientTraffics/{identifier}",
+                f"/inbounds/getClientTraffics/{identifier}",
+                f"/getClientTraffics/{identifier}",
+            ]
+            data = None
+            for path in candidates:
+                try:
+                    r = await client.get(f"{self._base()}{path}", headers=self._auth_headers())
+                    if r.status_code == 200:
+                        data = r.json()
+                        break
+                except Exception:
+                    continue
+            used_bytes = 0
+            total_bytes = 0
+            days_left = 0
+            try:
+                import time as _time
+                # data can be dict or list
+                entries = []
+                if isinstance(data, dict):
+                    entries = data.get("obj") if isinstance(data.get("obj"), list) else (data.get("clients") or [])
+                    if not entries:
+                        entries = [data]
+                elif isinstance(data, list):
+                    entries = data
+                for e in entries:
+                    try:
+                        up = int(e.get("up") or 0)
+                        down = int(e.get("down") or 0)
+                        total = int(e.get("total") or e.get("totalGB") or 0)
+                        used_bytes += up + down
+                        # Some implementations return per inbound totals; take max as limit
+                        total_bytes = max(total_bytes, total)
+                        exp = int(e.get("expiryTime") or 0)
+                        if exp:
+                            rem_days = max(0, int((exp/1000 - _time.time()) // 86400))
+                            days_left = max(days_left, rem_days)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            def _gb(x: int) -> float:
+                return round(float(x) / (1024 * 1024 * 1024), 3)
+            remaining_gb = max(0.0, _gb(total_bytes - used_bytes)) if total_bytes else 0.0
+            return {"used_gb": _gb(used_bytes), "remaining_gb": remaining_gb, "total_gb": _gb(total_bytes), "days_left": days_left}
 
     async def reset_uuid(self, uuid: str) -> str:
         return str(uuid_lib.uuid4())
