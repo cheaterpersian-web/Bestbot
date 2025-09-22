@@ -379,6 +379,7 @@ async function buyService() {
     
     const plan = plans.find(p => p.id == planId);
     if (!plan) return;
+    const alias = (document.getElementById('alias-input')?.value || '').trim();
     
     // Show confirmation
     const confirmed = confirm(`آیا می‌خواهید پلن "${plan.title}" را به قیمت ${plan.price_irr.toLocaleString('fa-IR')} تومان خریداری کنید؟`);
@@ -393,7 +394,8 @@ async function buyService() {
                     'Authorization': `Bearer ${tg.initData}`
                 },
                 body: JSON.stringify({
-                    plan_id: planId
+                    plan_id: planId,
+                    alias: alias || undefined
                 })
             });
             

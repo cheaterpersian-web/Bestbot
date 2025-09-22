@@ -258,7 +258,7 @@ class SanaeiPanelClient(PanelClient):
                 client,
                 inbound_id=inbound.get("id"),
                 user_uuid=user_uuid,
-                remark=request.remark,
+                remark=(request.remark or "").strip() or user_uuid,
                 duration_days=request.duration_days,
                 traffic_gb=request.traffic_gb,
             )

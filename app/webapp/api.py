@@ -292,6 +292,7 @@ async def purchase_service(
             raise HTTPException(status_code=404, detail="User not found")
         
         plan_id = int(payload.get("plan_id")) if payload and payload.get("plan_id") else None
+        desired_alias = (payload.get("alias") or "").strip()
         # Get plan
         plan = (await session.execute(
             select(Plan).where(Plan.id == plan_id)
@@ -313,12 +314,27 @@ async def purchase_service(
             raise HTTPException(status_code=404, detail="Server not found")
 
         # Create service via panel
+        # Build a unique remark/alias: prefer user input, fallback to default; if duplicate, append -NN
+        base_alias = desired_alias if desired_alias else f"u{user.id}-{plan.title}"
+        remark = base_alias
+        try:
+            # ensure uniqueness per user
+            from sqlalchemy import select
+            exists = await session.execute(select(Service.id).where(Service.user_id == user.id, Service.remark == remark))
+            exists = exists.first() is not None
+            if exists:
+                import random
+                suffix = f"-{random.randint(10,99)}"
+                remark = f"{base_alias}{suffix}"
+        except Exception:
+            pass
+
         service = await create_service_after_payment(
             session=session,
             user=user,
             plan=plan,
             server=server,
-            remark=f"Service from plan {plan.title}"
+            remark=remark
         )
         await session.flush()
 
