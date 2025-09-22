@@ -215,18 +215,31 @@ async def get_servers(user_data: dict = Depends(verify_telegram_auth)):
 async def get_server_categories(server_id: int, user_data: dict = Depends(verify_telegram_auth)):
     """Get categories for a specific server"""
     async with get_db_session() as session:
-        from sqlalchemy import select, distinct
+        from sqlalchemy import select
 
-        # Category does not have server_id; derive categories via plans mapped to this server
-        rows = await session.execute(
-            select(distinct(Category.id), Category.title, Category.description, Category.icon, Category.color)
+        # Get distinct category ids that have plans on this server
+        cat_ids_subq = (
+            select(Category.id)
             .join(Plan, Plan.category_id == Category.id)
             .where(and_(Category.is_active == True, Plan.server_id == server_id))
-            .order_by(Category.sort_order)
+            .distinct()
         )
+
+        categories = (await session.execute(
+            select(Category)
+            .where(Category.id.in_(cat_ids_subq))
+            .order_by(Category.sort_order)
+        )).scalars().all()
+
         return [
-            {"id": cid, "title": title, "description": desc, "icon": icon, "color": color}
-            for cid, title, desc, icon, color in rows.all()
+            {
+                "id": c.id,
+                "title": c.title,
+                "description": c.description,
+                "icon": getattr(c, "icon", None),
+                "color": getattr(c, "color", None),
+            }
+            for c in categories
         ]
 
 
