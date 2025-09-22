@@ -25,6 +25,10 @@ from models.scheduled_messages import MessageType, MessageStatus, ScheduledMessa
 router = Router(name="admin")
 
 
+class ManageUserStates(StatesGroup):
+    waiting_user_id = State()
+
+
 def admin_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -469,15 +473,18 @@ async def admin_manage_plans(message: Message):
 
 
 @router.message(F.text == "👥 مدیریت کاربران")
-async def admin_manage_users(message: Message):
+async def admin_manage_users(message: Message, state: FSMContext):
     if not await _is_admin(message.from_user.id):
         await message.answer("شما دسترسی ادمین ندارید.")
         return
-    await message.answer("👥 مدیریت کاربران\n\nبرای مدیریت کاربران، شناسه کاربری (User ID) را ارسال کنید.")
+    await state.set_state(ManageUserStates.waiting_user_id)
+    await message.answer(
+        "👥 مدیریت کاربران\n\nبرای مدیریت کاربران، شناسه کاربری (User ID) را ارسال کنید.\n\nلغو: ارسال کنید 'لغو'",
+    )
 
 
-@router.message(F.text.regexp(r"^\d+$"))
-async def admin_user_lookup(message: Message):
+@router.message(ManageUserStates.waiting_user_id, F.text.regexp(r"^\d+$"))
+async def admin_user_lookup(message: Message, state: FSMContext):
     """Handle user ID lookup for admin management"""
     if not await _is_admin(message.from_user.id):
         return
@@ -492,6 +499,7 @@ async def admin_user_lookup(message: Message):
         
         if not user:
             await message.answer("❌ کاربر یافت نشد.")
+            await state.clear()
             return
         
         # Get user statistics
@@ -516,6 +524,15 @@ async def admin_user_lookup(message: Message):
         """.strip()
         
         await message.answer(text, reply_markup=user_profile_actions_kb(user.telegram_user_id))
+    await state.clear()
+
+
+@router.message(ManageUserStates.waiting_user_id, F.text.regexp(r"^(لغو|انصراف|cancel|Cancel|CANCEL)$"))
+async def admin_user_lookup_cancel(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        return
+    await state.clear()
+    await message.answer("لغو شد. به پنل مدیریت بازگشتید.", reply_markup=admin_kb())
 
 
 @router.message(F.text == "🎁 سیستم هدیه")
