@@ -720,6 +720,17 @@ async def add_plan_cat(message: Message, state: FSMContext):
     except Exception:
         await message.answer("عدد نامعتبر.")
         return
+    # Validate category exists
+    try:
+        async with get_db_session() as session:
+            from sqlalchemy import select
+            cid = (await session.execute(select(Category.id).where(Category.id == (await state.get_data()).get("category_id")))).scalar_one_or_none()
+        if not cid:
+            await message.answer("❌ دسته یافت نشد. ابتدا دسته بسازید یا شناسه صحیح وارد کنید.\n/list_categories")
+            return
+    except Exception:
+        await message.answer("❌ خطا در بررسی دسته. دوباره تلاش کنید.")
+        return
     await message.answer("ID سرور را وارد کنید (\n/list_servers برای مشاهده)")
     await state.set_state(AddPlanStates.waiting_server_id)
 
@@ -730,6 +741,17 @@ async def add_plan_server(message: Message, state: FSMContext):
         await state.update_data(server_id=_parse_int(message.text))
     except Exception:
         await message.answer("عدد نامعتبر.")
+        return
+    # Validate server exists
+    try:
+        async with get_db_session() as session:
+            from sqlalchemy import select
+            sid = (await session.execute(select(Server.id).where(Server.id == (await state.get_data()).get("server_id")))).scalar_one_or_none()
+        if not sid:
+            await message.answer("❌ سرور یافت نشد. ابتدا سرور بسازید یا شناسه صحیح وارد کنید.\n/list_servers")
+            return
+    except Exception:
+        await message.answer("❌ خطا در بررسی سرور. دوباره تلاش کنید.")
         return
     await message.answer("عنوان پلن را وارد کنید")
     await state.set_state(AddPlanStates.waiting_title)
@@ -779,19 +801,23 @@ async def add_plan_traffic(message: Message, state: FSMContext):
     except Exception:
         await message.answer("عدد نامعتبر.")
         return
-    async with get_db_session() as session:
-        p = Plan(
-            category_id=data["category_id"],
-            server_id=data["server_id"],
-            title=data["title"],
-            price_irr=data["price_irr"],
-            duration_days=(None if data["duration_days"] == 0 else data["duration_days"]),
-            traffic_gb=(None if traffic == 0 else traffic),
-            is_active=True,
-        )
-        session.add(p)
+    try:
+        async with get_db_session() as session:
+            p = Plan(
+                category_id=data["category_id"],
+                server_id=data["server_id"],
+                title=data["title"],
+                price_irr=data["price_irr"],
+                duration_days=(None if data["duration_days"] == 0 else data["duration_days"]),
+                traffic_gb=(None if traffic == 0 else traffic),
+                is_active=True,
+            )
+            session.add(p)
+    except Exception as e:
+        await message.answer("❌ ثبت پلن ناموفق بود. لطفاً از صحت دسته و سرور اطمینان حاصل کنید و دوباره تلاش کنید.")
+        return
     await state.clear()
-    await message.answer("پلن ثبت شد.")
+    await message.answer("✅ پلن ثبت شد.")
 
 
 @router.message(Command("list_plans"))
