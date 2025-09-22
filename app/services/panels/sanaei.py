@@ -322,6 +322,8 @@ class SanaeiPanelClient(PanelClient):
                                         return
                                 except Exception:
                                     continue
+                except Exception:
+                    continue
             # If not found or update failed, do nothing (non-fatal)
             return None
 
@@ -374,6 +376,8 @@ class SanaeiPanelClient(PanelClient):
                                         return
                                 except Exception:
                                     continue
+                except Exception:
+                    continue
             return None
 
     async def get_usage(self, uuid: str) -> dict:
