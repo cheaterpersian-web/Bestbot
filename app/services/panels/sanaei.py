@@ -109,11 +109,21 @@ class SanaeiPanelClient(PanelClient):
             "settings": _json.dumps({"clients": [client_obj]}),
         }
         headers = self._auth_headers()
-        # Try JSON first, then form-encoded
-        json_payload = {
+        # Try JSON first (settings wrapper), then direct client fields, then form-encoded
+        json_payload_settings = {
             "id": str(inbound_id),
             "inboundId": str(inbound_id),
             "settings": {"clients": [client_obj]},
+        }
+        json_payload_direct = {
+            "inboundId": str(inbound_id),
+            "email": remark,
+            "enable": True,
+            "expiryTime": expiry_ts_ms,
+            "totalGB": total_gb_bytes,
+            "limitIp": 0,
+            "flow": "",
+            "id": user_uuid,
         }
         form_headers = dict(headers)
         form_headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
@@ -121,18 +131,60 @@ class SanaeiPanelClient(PanelClient):
             "/panel/api/inbounds/addClient",
             "/api/inbounds/addClient",
             "/inbounds/addClient",
+            "/addClient",
             "/xui/inbound/addClient",
             "/panel/inbound/addClient",
         ]
+
+        async def _verify_added() -> bool:
+            # Try checking by email via known endpoints
+            ver_candidates = [
+                f"/panel/api/inbounds/getClientTraffics/{remark}",
+                f"/api/inbounds/getClientTraffics/{remark}",
+                f"/inbounds/getClientTraffics/{remark}",
+                f"/getClientTraffics/{remark}",
+            ]
+            for v in ver_candidates:
+                try:
+                    vr = await client.get(f"{self._base()}{v}", headers=self._auth_headers())
+                    if vr.status_code == 200:
+                        data = vr.json()
+                        if data:
+                            return True
+                except Exception:
+                    continue
+            # Fallback: fetch inbound detail and scan clients
+            detail = await self._get_inbound_detail(client, inbound_id)
+            try:
+                settings = detail.get("settings") or {}
+                if isinstance(settings, str):
+                    import json as _json
+                    settings = _json.loads(settings) or {}
+                clients = settings.get("clients") or []
+                if isinstance(clients, list):
+                    for c in clients:
+                        try:
+                            if (c.get("email") == remark) or (c.get("id") == user_uuid):
+                                return True
+                        except Exception:
+                            continue
+            except Exception:
+                pass
+            return False
+
         for ep in endpoints:
             try:
-                # Try JSON
-                resp = await client.post(f"{self._base()}{ep}", json=json_payload, headers=headers)
-                if resp.status_code == 200:
+                # Try JSON with settings wrapper
+                resp = await client.post(f"{self._base()}{ep}", json=json_payload_settings, headers=headers)
+                if resp.status_code == 200 and await _verify_added():
+                    return
+                # Try JSON direct
+                resp = await client.post(f"{self._base()}{ep}", json=json_payload_direct, headers=headers)
+                if resp.status_code == 200 and await _verify_added():
                     return
                 # Try form fallback
                 resp = await client.post(f"{self._base()}{ep}", data=form_data, headers=form_headers)
-                if resp.status_code == 200:
+                if resp.status_code == 200 and await _verify_added():
                     return
             except Exception:
                 continue
