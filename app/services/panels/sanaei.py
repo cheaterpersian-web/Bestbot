@@ -293,22 +293,24 @@ class SanaeiPanelClient(PanelClient):
                             now_ms = int(_time.time() * 1000)
                             base_ms = cur_exp if cur_exp and cur_exp > now_ms else now_ms
                             new_exp_ms = base_ms + int(add_days) * 86400 * 1000
-                            # Build update payload
-                            upd = {
+                            client_id = c.get("id") or c.get("uuid") or c.get("password") or identifier
+                            # Build form-encoded payload per 3xui (id=inboundId, settings as JSON string)
+                            import json as _json
+                            client_settings = {
+                                "id": client_id,
+                                "flow": c.get("flow") or "",
                                 "email": cmail or (c.get("email") or identifier),
-                                "enable": c.get("enable", True),
                                 "limitIp": int(c.get("limitIp") or 0),
                                 "totalGB": int(c.get("totalGB") or c.get("total") or 0),
                                 "expiryTime": new_exp_ms,
-                                "flow": c.get("flow") or "",
+                                "enable": c.get("enable", True),
+                                "reset": int(c.get("reset") or 0),
                             }
-                            if c.get("password"):
-                                upd["password"] = c.get("password")
-                                client_id = c.get("password")
-                            else:
-                                upd["id"] = c.get("id") or c.get("uuid") or identifier
-                                client_id = upd["id"]
-                            # Try updateClient endpoints
+                            form_data = {
+                                "id": str(int(ib_id)),
+                                "settings": _json.dumps({"clients": [client_settings]}),
+                            }
+                            # Try updateClient endpoints (form-encoded)
                             eps = [
                                 f"/panel/api/inbounds/updateClient/{client_id}",
                                 f"/api/inbounds/updateClient/{client_id}",
@@ -317,7 +319,9 @@ class SanaeiPanelClient(PanelClient):
                             ]
                             for ep in eps:
                                 try:
-                                    r = await client.post(f"{self._base()}{ep}", json=upd, headers=self._auth_headers())
+                                    headers = dict(self._auth_headers())
+                                    headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+                                    r = await client.post(f"{self._base()}{ep}", data=form_data, headers=headers)
                                     if r.status_code == 200:
                                         return
                                 except Exception:
@@ -349,20 +353,22 @@ class SanaeiPanelClient(PanelClient):
                         if cid == identifier or cmail == identifier:
                             cur_total = int(c.get("totalGB") or c.get("total") or 0)
                             new_total = cur_total + int(add_gb) * 1024 * 1024 * 1024
-                            upd = {
-                                "email": cmail or (c.get("email") or identifier),
-                                "enable": c.get("enable", True),
-                                "limitIp": int(c.get("limitIp") or 0),
-                                "totalGB": new_total,
-                                "expiryTime": int(c.get("expiryTime") or 0),
+                            client_id = c.get("id") or c.get("uuid") or c.get("password") or identifier
+                            import json as _json
+                            client_settings = {
+                                "id": client_id,
                                 "flow": c.get("flow") or "",
+                                "email": cmail or (c.get("email") or identifier),
+                                "limitIp": int(c.get("limitIp") or 0),
+                                "totalGB": int(new_total),
+                                "expiryTime": int(c.get("expiryTime") or 0),
+                                "enable": c.get("enable", True),
+                                "reset": int(c.get("reset") or 0),
                             }
-                            if c.get("password"):
-                                upd["password"] = c.get("password")
-                                client_id = c.get("password")
-                            else:
-                                upd["id"] = c.get("id") or c.get("uuid") or identifier
-                                client_id = upd["id"]
+                            form_data = {
+                                "id": str(int(ib_id)),
+                                "settings": _json.dumps({"clients": [client_settings]}),
+                            }
                             eps = [
                                 f"/panel/api/inbounds/updateClient/{client_id}",
                                 f"/api/inbounds/updateClient/{client_id}",
@@ -371,7 +377,9 @@ class SanaeiPanelClient(PanelClient):
                             ]
                             for ep in eps:
                                 try:
-                                    r = await client.post(f"{self._base()}{ep}", json=upd, headers=self._auth_headers())
+                                    headers = dict(self._auth_headers())
+                                    headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+                                    r = await client.post(f"{self._base()}{ep}", data=form_data, headers=headers)
                                     if r.status_code == 200:
                                         return
                                 except Exception:
@@ -408,9 +416,17 @@ class SanaeiPanelClient(PanelClient):
                 # data can be dict or list
                 entries = []
                 if isinstance(data, dict):
-                    entries = data.get("obj") if isinstance(data.get("obj"), list) else (data.get("clients") or [])
-                    if not entries:
-                        entries = [data]
+                    obj = data.get("obj")
+                    if isinstance(obj, list):
+                        entries = obj
+                    elif isinstance(obj, dict):
+                        entries = [obj]
+                    else:
+                        clients = data.get("clients")
+                        if isinstance(clients, list):
+                            entries = clients
+                        else:
+                            entries = [data]
                 elif isinstance(data, list):
                     entries = data
                 for e in entries:
