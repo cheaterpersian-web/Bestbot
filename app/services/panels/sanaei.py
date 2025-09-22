@@ -145,14 +145,33 @@ class SanaeiPanelClient(PanelClient):
         host = parsed.hostname or "example.com"
         port = inbound.get("port") or parsed.port or 443
         stream = inbound.get("streamSettings") or {}
-        network = (stream.get("network") or "tcp").lower()
-        security = (stream.get("security") or "none").lower()
+        # Some panels return JSON-encoded strings for streamSettings
+        if isinstance(stream, str):
+            try:
+                import json as _json
+                stream = _json.loads(stream) or {}
+            except Exception:
+                stream = {}
+        network = ( (stream.get("network") if isinstance(stream, dict) else None) or "tcp" ).lower()
+        security = ( (stream.get("security") if isinstance(stream, dict) else None) or "none" ).lower()
         path = "/"
         host_header = None
         if network == "ws":
-            ws = stream.get("wsSettings") or {}
+            ws = (stream.get("wsSettings") if isinstance(stream, dict) else {}) or {}
+            if isinstance(ws, str):
+                try:
+                    import json as _json
+                    ws = _json.loads(ws) or {}
+                except Exception:
+                    ws = {}
             path = ws.get("path") or "/"
             headers = ws.get("headers") or {}
+            if isinstance(headers, str):
+                try:
+                    import json as _json
+                    headers = _json.loads(headers) or {}
+                except Exception:
+                    headers = {}
             # common key names
             host_header = headers.get("Host") or headers.get("host")
         # Build vless link
