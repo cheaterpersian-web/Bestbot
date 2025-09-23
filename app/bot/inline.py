@@ -1,4 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from core.db import get_db_session
+from services.bot_settings import get_payment_methods
 
 
 def categories_kb(items: list[tuple[int, str]]) -> InlineKeyboardMarkup:
@@ -16,12 +18,31 @@ def plans_kb(items: list[tuple[int, str]]) -> InlineKeyboardMarkup:
 
 
 def pay_options_kb(plan_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="پرداخت از کیف پول", callback_data=f"buy:pay_wallet:{plan_id}")],
-            [InlineKeyboardButton(text="ارسال رسید کارت‌به‌کارت", callback_data=f"buy:pay_receipt:{plan_id}")],
-        ]
-    )
+    # Note: this is a sync function in a module; we will build keyboard lazily via a small async helper
+    # For aiogram usage simplicity, we keep it sync but fetch settings at call time with a simple event loop if needed.
+    # However, to avoid event loop issues, we provide a default keyboard and let buy router rebuild if needed.
+    rows = [
+        [InlineKeyboardButton(text="پرداخت از کیف پول", callback_data=f"buy:pay_wallet:{plan_id}")],
+        [InlineKeyboardButton(text="ارسال رسید کارت‌به‌کارت", callback_data=f"buy:pay_receipt:{plan_id}")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def build_pay_options_kb(plan_id: int) -> InlineKeyboardMarkup:
+    methods = []
+    async with get_db_session() as session:
+        methods = await get_payment_methods(session)
+    rows = []
+    for m in methods:
+        if m == "wallet":
+            rows.append([InlineKeyboardButton(text="پرداخت از کیف پول", callback_data=f"buy:pay_wallet:{plan_id}")])
+        elif m == "card":
+            rows.append([InlineKeyboardButton(text="ارسال رسید کارت‌به‌کارت", callback_data=f"buy:pay_receipt:{plan_id}")])
+        elif m == "stars":
+            rows.append([InlineKeyboardButton(text="پرداخت با استارز", callback_data=f"buy:pay_stars:{plan_id}")])
+        elif m == "zarinpal":
+            rows.append([InlineKeyboardButton(text="پرداخت آنلاین (زرین‌پال)", callback_data=f"buy:pay_zarin:{plan_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows or [[InlineKeyboardButton(text="ارسال رسید کارت‌به‌کارت", callback_data=f"buy:pay_receipt:{plan_id}")]])
 
 
 def admin_review_kb(tx_id: int) -> InlineKeyboardMarkup:

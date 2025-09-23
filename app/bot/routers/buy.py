@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, BufferedInputFile
 
-from bot.inline import categories_kb, plans_kb, pay_options_kb
+from bot.inline import categories_kb, plans_kb, pay_options_kb, build_pay_options_kb
 from core.db import get_db_session
 from core.config import settings
 from models.catalog import Category, Plan, Server
@@ -16,6 +16,7 @@ from models.orders import PurchaseIntent
 from services.purchases import create_service_after_payment
 from services.qrcode_gen import generate_qr_with_template
 from bot.inline import admin_review_tx_kb
+from services.bot_settings import get_bool
 
 
 router = Router(name="buy")
@@ -65,6 +66,11 @@ def _to_int_money(v) -> int:
 async def buy_entry(message: Message):
     async with get_db_session() as session:
         from sqlalchemy import select
+        # Gate: sales enabled
+        sales_on = await get_bool(session, "sales_enabled", True)
+        if not sales_on:
+            await message.answer("فروش در حال حاضر غیرفعال است.")
+            return
         cats = (
             await session.execute(
                 select(Category).where(Category.is_active == True).order_by(Category.sort_order)
@@ -82,6 +88,12 @@ async def choose_category(callback: CallbackQuery):
     cat_id = int(callback.data.split(":")[-1])
     async with get_db_session() as session:
         from sqlalchemy import select
+        # Gate: sales enabled
+        sales_on = await get_bool(session, "sales_enabled", True)
+        if not sales_on:
+            await callback.message.answer("فروش در حال حاضر غیرفعال است.")
+            await callback.answer()
+            return
         plans = (
             await session.execute(
                 select(Plan).where(Plan.category_id == cat_id, Plan.is_active == True)
@@ -131,7 +143,11 @@ async def receive_alias(message: Message, state: FSMContext):
     data = await state.get_data()
     plan_id = int(data.get("selected_plan_id"))
     await state.update_data(alias=alias)
-    await message.answer("روش پرداخت را انتخاب کنید:", reply_markup=pay_options_kb(plan_id))
+    try:
+        kb = await build_pay_options_kb(plan_id)
+    except Exception:
+        kb = pay_options_kb(plan_id)
+    await message.answer("روش پرداخت را انتخاب کنید:", reply_markup=kb)
     # Store selected plan id from previous step if needed via inline callback; for simplicity, encode plan id in state earlier
 
 
@@ -141,6 +157,12 @@ async def pay_with_wallet(callback: CallbackQuery, state: FSMContext):
     plan_id = int(callback.data.split(":")[-1])
     async with get_db_session() as session:
         from sqlalchemy import select
+        # Enforce wallet payment enabled
+        wallet_on = await get_bool(session, "enable_wallet_payment", True)
+        if not wallet_on:
+            await callback.message.answer("پرداخت با کیف پول غیرفعال است.")
+            await callback.answer()
+            return
         plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one()
         server = (await session.execute(select(Server).where(Server.id == plan.server_id))).scalar_one()
         me = (
@@ -223,6 +245,11 @@ async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
     plan_id = int(callback.data.split(":")[-1])
     async with get_db_session() as session:
         from sqlalchemy import select
+        # Enforce that card-to-card is enabled
+        card_on = await get_bool(session, "enable_card_to_card", True)
+        if not card_on:
+            await callback.message.answer("پرداخت کارت‌به‌کارت موقتاً غیرفعال است.")
+            return
         plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one()
         server = (await session.execute(select(Server).where(Server.id == plan.server_id))).scalar_one()
         me = (
