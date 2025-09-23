@@ -400,11 +400,13 @@ class SanaeiPanelClient(PanelClient):
                 f"/getClientTraffics/{identifier}",
             ]
             data = None
+            ok = False
             for path in candidates:
                 try:
                     r = await client.get(f"{self._base()}{path}", headers=self._auth_headers())
                     if r.status_code == 200:
                         data = r.json()
+                        ok = True
                         break
                 except Exception:
                     continue
@@ -448,6 +450,8 @@ class SanaeiPanelClient(PanelClient):
             def _gb(x: int) -> float:
                 return round(float(x) / (1024 * 1024 * 1024), 3)
             remaining_gb = max(0.0, _gb(total_bytes - used_bytes)) if total_bytes else 0.0
+            if not ok:
+                raise httpx.HTTPError("client not found")
             return {"used_gb": _gb(used_bytes), "remaining_gb": remaining_gb, "total_gb": _gb(total_bytes), "days_left": days_left}
 
     async def reset_uuid(self, uuid: str) -> str:
