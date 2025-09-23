@@ -20,6 +20,7 @@ from bot.inline import admin_approve_add_service_kb
 import json
 from services.scheduled_message_service import ScheduledMessageService
 from models.scheduled_messages import MessageType, MessageStatus, ScheduledMessage
+from models.support import Ticket, TicketMessage
 
 
 router = Router(name="admin")
@@ -585,28 +586,79 @@ async def admin_bot_settings(message: Message):
     async with get_db_session() as session:
         from sqlalchemy import select
         from models.admin import BotSettings
-        def get(key: str, default: str) -> str:
-            row = (yield from session.execute(select(BotSettings).where(BotSettings.key == key))).scalar_one_or_none()  # type: ignore
+        async def get_val(key: str, default: str) -> str:
+            row = (await session.execute(select(BotSettings).where(BotSettings.key == key))).scalar_one_or_none()
             return row.value if row else default
-        # read current values (fallbacks from settings)
-        sales_enabled = get("sales_enabled", str(bool(settings.sales_enabled))).lower() in {"1","true","yes"}
-        join_lock = get("join_channel_required", str(bool(settings.join_channel_required))).lower() in {"1","true","yes"}
-        min_topup = get("min_topup_amount", str(settings.min_topup_amount))
-        max_topup = get("max_topup_amount", str(settings.max_topup_amount))
+        sales_enabled = (await get_val("sales_enabled", str(bool(settings.sales_enabled)))).lower() in {"1","true","yes"}
+        join_lock = (await get_val("join_channel_required", str(bool(settings.join_channel_required)))).lower() in {"1","true","yes"}
+        min_topup = await get_val("min_topup_amount", str(settings.min_topup_amount))
+        max_topup = await get_val("max_topup_amount", str(settings.max_topup_amount))
+        wallet_on = (await get_val("enable_wallet_payment", "true")).lower() in {"1","true","yes"}
+        card_on = (await get_val("enable_card_to_card", "true")).lower() in {"1","true","yes"}
+        auto_approve = (await get_val("auto_approve_receipts", str(bool(settings.auto_approve_receipts)))).lower() in {"1","true","yes"}
+        phone_verify = (await get_val("require_phone_verification", str(bool(settings.require_phone_verification)))).lower() in {"1","true","yes"}
+        test_accounts = (await get_val("enable_test_accounts", str(bool(settings.enable_test_accounts)))).lower() in {"1","true","yes"}
+        fraud_on = (await get_val("enable_fraud_detection", str(bool(settings.enable_fraud_detection)))).lower() in {"1","true","yes"}
+        max_daily_tx = await get_val("max_daily_transactions", str(settings.max_daily_transactions))
+        max_daily_amt = await get_val("max_daily_amount", str(settings.max_daily_amount))
+        support = await get_val("support_channel", "")
+        join_chan = await get_val("join_channel_username", "")
+        bot_user = await get_val("bot_username", settings.bot_username or "")
+        ref_pct = await get_val("referral_percent", str(settings.referral_percent))
+        ref_fix = await get_val("referral_fixed", str(settings.referral_fixed))
+        banner = await get_val("sales_message_banner", "")
+        receipt_help = await get_val("payment_receipt_instructions", "")
+        stars_on = (await get_val("enable_stars", str(bool(settings.enable_stars)))).lower() in {"1","true","yes"}
+        zarin_on = (await get_val("enable_zarinpal", str(bool(settings.enable_zarinpal)))).lower() in {"1","true","yes"}
+        zarin_id = await get_val("zarinpal_merchant_id", settings.zarinpal_merchant_id or "")
+        webapp_url = await get_val("webapp_url", settings.webapp_url or "")
+        status_url = await get_val("status_url", settings.status_url or "")
+        panel_mode = await get_val("default_panel_mode", settings.default_panel_mode or "")
+        card_number = await get_val("card_number", "")
+        welcome_text = await get_val("welcome_text", "")
+        rules_text = await get_val("rules_text", "")
+        help_text = await get_val("help_text", "")
+        faq_link = await get_val("faq_link", "")
     text = (
-        "⚙️ تنظیمات ربات\n\n" \
-        f"فروش فعال: {'✅' if sales_enabled else '❌'}\n" \
-        f"الزام عضویت کانال: {'✅' if join_lock else '❌'}\n" \
-        f"حداقل شارژ کیف پول: {min_topup}\n" \
-        f"حداکثر شارژ کیف پول: {max_topup}\n"
+        "⚙️ تنظیمات ربات\n\n"
+        f"فروش فعال: {'✅' if sales_enabled else '❌'}\n"
+        f"الزام عضویت کانال: {'✅' if join_lock else '❌'}  {('@'+join_chan) if join_chan else ''}\n"
+        f"پرداخت‌ها → کیف پول: {'✅' if wallet_on else '❌'} | کارت‌به‌کارت: {'✅' if card_on else '❌'} | ستاره: {'✅' if stars_on else '❌'} | زرین‌پال: {'✅' if zarin_on else '❌'}\n"
+        f"حداقل/حداکثر شارژ: {min_topup} / {max_topup} | محدودیت روزانه: {max_daily_tx} تراکنش / {max_daily_amt} تومان\n"
+        f"رسید خودکار: {'✅' if auto_approve else '❌'} | تایید تلفن: {'✅' if phone_verify else '❌'} | اکانت تست: {'✅' if test_accounts else '❌'} | ضدتقلب: {'✅' if fraud_on else '❌'}\n"
+        f"ریفرال: {ref_pct}% + {ref_fix}\n"
+        f"کانال پشتیبانی: {support or '-'} | نام کاربری ربات: {('@'+bot_user) if bot_user else '-'}\n"
+        f"وب‌اپ: {webapp_url or '-'} | وضعیت: {status_url or '-'} | پنل: {panel_mode or '-'}\n"
+        f"کارت بانکی: {card_number or '-'}\n"
+        f"بنر فروش: {('✅' if banner else '❌')} | راهنمای رسید: {('✅' if receipt_help else '❌')} | پیام خوش‌آمد: {('✅' if welcome_text else '❌')}\n"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=("🔴 غیرفعال کردن فروش" if sales_enabled else "🟢 فعال کردن فروش"), callback_data="botset:toggle_sales")],
         [InlineKeyboardButton(text=("🔓 برداشتن الزام عضویت" if join_lock else "🔒 الزام عضویت کانال"), callback_data="botset:toggle_join")],
-        [InlineKeyboardButton(text="✏️ تنظیم حداقل شارژ", callback_data="botset:set_min_topup")],
-        [InlineKeyboardButton(text="✏️ تنظیم حداکثر شارژ", callback_data="botset:set_max_topup")],
+        [InlineKeyboardButton(text=("💸 خاموش کردن کیف پول" if wallet_on else "💸 روشن کردن کیف پول"), callback_data="botset:toggle_wallet")],
+        [InlineKeyboardButton(text=("🏦 خاموش کردن کارت‌به‌کارت" if card_on else "🏦 روشن کردن کارت‌به‌کارت"), callback_data="botset:toggle_card")],
+        [InlineKeyboardButton(text=("⭐ خاموش/روشن ستاره"), callback_data="botset:toggle_stars"), InlineKeyboardButton(text=("💳 زرین‌پال خاموش/روشن"), callback_data="botset:toggle_zarin")],
+        [InlineKeyboardButton(text="🆔 مرچنت زرین‌پال", callback_data="botset:set_zarin_id"), InlineKeyboardButton(text="💳 شماره کارت", callback_data="botset:set_card_number")],
+        [InlineKeyboardButton(text="✏️ حداقل شارژ", callback_data="botset:set_min_topup"), InlineKeyboardButton(text="✏️ حداکثر شارژ", callback_data="botset:set_max_topup")],
+        [InlineKeyboardButton(text="⏱️ سقف تعداد روزانه", callback_data="botset:set_max_daily_tx"), InlineKeyboardButton(text="💰 سقف مبلغ روزانه", callback_data="botset:set_max_daily_amt")],
+        [InlineKeyboardButton(text=("🤖 رسید خودکار"), callback_data="botset:toggle_auto_approve"), InlineKeyboardButton(text=("📞 تایید شماره"), callback_data="botset:toggle_phone_verif")],
+        [InlineKeyboardButton(text=("🧪 اکانت تست"), callback_data="botset:toggle_test_accounts"), InlineKeyboardButton(text=("🧠 ضدتقلب"), callback_data="botset:toggle_fraud")],
+        [InlineKeyboardButton(text="👥 درصد ریفرال", callback_data="botset:set_ref_pct"), InlineKeyboardButton(text="👥 مبلغ ثابت ریفرال", callback_data="botset:set_ref_fix")],
+        [InlineKeyboardButton(text="🆔 نام کاربری ربات", callback_data="botset:set_bot_user"), InlineKeyboardButton(text="📣 کانال پشتیبانی", callback_data="botset:set_support")],
+        [InlineKeyboardButton(text="🔗 کانال الزامی", callback_data="botset:set_join_chan")],
+        [InlineKeyboardButton(text="🌐 آدرس وب‌اپ", callback_data="botset:set_webapp_url"), InlineKeyboardButton(text="📈 آدرس وضعیت", callback_data="botset:set_status_url")],
+        [InlineKeyboardButton(text="🛠️ حالت پیش‌فرض پنل", callback_data="botset:set_panel_mode")],
+        [InlineKeyboardButton(text="🪧 متن بنر فروش", callback_data="botset:set_banner")],
+        [InlineKeyboardButton(text="🧾 متن راهنمای رسید", callback_data="botset:set_receipt")],
+        [InlineKeyboardButton(text="👋 پیام خوش‌آمد", callback_data="botset:set_welcome"), InlineKeyboardButton(text="📜 قوانین", callback_data="botset:set_rules")],
+        [InlineKeyboardButton(text="🆘 متن راهنما", callback_data="botset:set_help"), InlineKeyboardButton(text="❓ لینک FAQ", callback_data="botset:set_faq")],
     ])
     await message.answer(text, reply_markup=kb)
+
+
+@router.message(Command("bot_settings"))
+async def admin_bot_settings_cmd(message: Message):
+    await admin_bot_settings(message)
 
 
 @router.callback_query(F.data == "botset:toggle_sales")
@@ -650,6 +702,24 @@ async def botset_toggle_join(callback: CallbackQuery):
 class BotSetStates(StatesGroup):
     waiting_min_topup = State()
     waiting_max_topup = State()
+    waiting_ref_pct = State()
+    waiting_ref_fix = State()
+    waiting_support = State()
+    waiting_join_chan = State()
+    waiting_bot_user = State()
+    waiting_banner = State()
+    waiting_receipt = State()
+    waiting_max_daily_tx = State()
+    waiting_max_daily_amt = State()
+    waiting_zarin_id = State()
+    waiting_webapp_url = State()
+    waiting_status_url = State()
+    waiting_panel_mode = State()
+    waiting_card_number = State()
+    waiting_welcome = State()
+    waiting_rules = State()
+    waiting_help = State()
+    waiting_faq = State()
 
 
 @router.callback_query(F.data == "botset:set_min_topup")
@@ -712,6 +782,446 @@ async def botset_max_value(message: Message, state: FSMContext):
     await message.answer("✅ حداکثر شارژ بروزرسانی شد.")
 
 
+@router.callback_query(F.data == "botset:toggle_wallet")
+async def botset_toggle_wallet(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "enable_wallet_payment"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else True
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="enable_wallet_payment", value=newv, data_type="bool", description="enable/disable wallet payments"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:toggle_card")
+async def botset_toggle_card(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "enable_card_to_card"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else True
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="enable_card_to_card", value=newv, data_type="bool", description="enable/disable card-to-card"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:toggle_auto_approve")
+async def botset_toggle_auto_approve(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "auto_approve_receipts"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.auto_approve_receipts)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="auto_approve_receipts", value=newv, data_type="bool", description="auto approve receipts"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:toggle_phone_verif")
+async def botset_toggle_phone_verif(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "require_phone_verification"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.require_phone_verification)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="require_phone_verification", value=newv, data_type="bool", description="require phone verification"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:toggle_test_accounts")
+async def botset_toggle_test_accounts(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "enable_test_accounts"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.enable_test_accounts)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="enable_test_accounts", value=newv, data_type="bool", description="enable test accounts"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:toggle_fraud")
+async def botset_toggle_fraud(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "enable_fraud_detection"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.enable_fraud_detection)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="enable_fraud_detection", value=newv, data_type="bool", description="enable fraud detection"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:set_max_daily_tx")
+async def botset_set_max_daily_tx(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_max_daily_tx)
+    await callback.message.answer("حداکثر تعداد تراکنش روزانه را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_max_daily_tx)
+async def botset_max_daily_tx_value(message: Message, state: FSMContext):
+    txt = (message.text or "").strip()
+    try:
+        val = str(int(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "max_daily_transactions"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="max_daily_transactions", value=val, data_type="int", description="max daily transactions"))
+    await state.clear()
+    await message.answer("✅ سقف تعداد روزانه بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_max_daily_amt")
+async def botset_set_max_daily_amt(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_max_daily_amt)
+    await callback.message.answer("حداکثر مبلغ تراکنش روزانه (تومان) را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_max_daily_amt)
+async def botset_max_daily_amt_value(message: Message, state: FSMContext):
+    txt = (message.text or "").strip().replace(",", "")
+    try:
+        val = str(int(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "max_daily_amount"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="max_daily_amount", value=val, data_type="int", description="max daily amount"))
+    await state.clear()
+    await message.answer("✅ سقف مبلغ روزانه بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:toggle_stars")
+async def botset_toggle_stars(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "enable_stars"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.enable_stars)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="enable_stars", value=newv, data_type="bool", description="enable telegram stars"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:toggle_zarin")
+async def botset_toggle_zarin(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "enable_zarinpal"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.enable_zarinpal)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="enable_zarinpal", value=newv, data_type="bool", description="enable zarinpal"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:set_zarin_id")
+async def botset_set_zarin_id(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_zarin_id)
+    await callback.message.answer("مرچنت زرین‌پال را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_zarin_id)
+async def botset_zarin_id_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "zarinpal_merchant_id"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="zarinpal_merchant_id", value=val, data_type="string", description="zarinpal merchant id"))
+    await state.clear()
+    await message.answer("✅ مرچنت زرین‌پال بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_webapp_url")
+async def botset_set_webapp_url(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_webapp_url)
+    await callback.message.answer("آدرس وب‌اپ را وارد کنید (مثلاً https://example.com/app):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_webapp_url)
+async def botset_webapp_url_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "webapp_url"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="webapp_url", value=val, data_type="string", description="webapp url"))
+    await state.clear()
+    await message.answer("✅ آدرس وب‌اپ بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_status_url")
+async def botset_set_status_url(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_status_url)
+    await callback.message.answer("آدرس وضعیت/استاتوس را وارد کنید (اختیاری):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_status_url)
+async def botset_status_url_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "status_url"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="status_url", value=val, data_type="string", description="status page url"))
+    await state.clear()
+    await message.answer("✅ آدرس وضعیت بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_panel_mode")
+async def botset_set_panel_mode(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_panel_mode)
+    await callback.message.answer("حالت پیش‌فرض پنل را وارد کنید (mock | xui | 3xui | sanaei | hiddify):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_panel_mode)
+async def botset_panel_mode_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    if val not in {"mock", "xui", "3xui", "sanaei", "hiddify"}:
+        await message.answer("مقدار نامعتبر. یکی از گزینه‌ها را وارد کنید: mock, xui, 3xui, sanaei, hiddify")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "default_panel_mode"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="default_panel_mode", value=val, data_type="string", description="default panel mode"))
+    await state.clear()
+    await message.answer("✅ حالت پنل بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_card_number")
+async def botset_set_card_number(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_card_number)
+    await callback.message.answer("شماره کارت/اطلاعات کارت‌به‌کارت را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_card_number)
+async def botset_card_number_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "card_number"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="card_number", value=val, data_type="string", description="card-to-card info"))
+    await state.clear()
+    await message.answer("✅ اطلاعات کارت بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_welcome")
+async def botset_set_welcome(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_welcome)
+    await callback.message.answer("متن پیام خوش‌آمد را ارسال کنید (خالی برای حذف):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_welcome)
+async def botset_welcome_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "welcome_text"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="welcome_text", value=val, data_type="string", description="welcome message"))
+    await state.clear()
+    await message.answer("✅ پیام خوش‌آمد بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_rules")
+async def botset_set_rules(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_rules)
+    await callback.message.answer("متن قوانین را ارسال کنید (خالی برای حذف):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_rules)
+async def botset_rules_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "rules_text"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="rules_text", value=val, data_type="string", description="rules text"))
+    await state.clear()
+    await message.answer("✅ قوانین بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_help")
+async def botset_set_help(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_help)
+    await callback.message.answer("متن راهنما را ارسال کنید (خالی برای حذف):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_help)
+async def botset_help_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "help_text"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="help_text", value=val, data_type="string", description="help text"))
+    await state.clear()
+    await message.answer("✅ متن راهنما بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_faq")
+async def botset_set_faq(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_faq)
+    await callback.message.answer("لینک FAQ را ارسال کنید (اختیاری):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_faq)
+async def botset_faq_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "faq_link"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="faq_link", value=val, data_type="string", description="faq link"))
+    await state.clear()
+    await message.answer("✅ لینک FAQ بروزرسانی شد.")
+
+
 @router.message(F.text == "📋 بررسی رسیدها")
 async def admin_review_menu(message: Message):
     if not await _is_admin(message.from_user.id):
@@ -756,6 +1266,8 @@ async def cb_approve_tx(callback: CallbackQuery):
         await callback.answer("اجازه ندارید", show_alert=True)
         return
     tx_id = int(callback.data.split(":")[-1])
+    created_service_url = None
+    user_chat_id = None
     async with get_db_session() as session:
         from sqlalchemy import select
         tx = (await session.execute(select(Transaction).where(Transaction.id == tx_id))).scalar_one_or_none()
@@ -776,34 +1288,35 @@ async def cb_approve_tx(callback: CallbackQuery):
             await callback.answer("خطا در تایید تراکنش", show_alert=True)
             return
 
-    created_service = None
-    user = None
-    # For receipt-based purchases, tx.type is usually 'purchase_receipt'
-    if tx.type in {"purchase", "purchase_receipt"}:
-        intent = (
-            await session.execute(select(PurchaseIntent).where(PurchaseIntent.receipt_transaction_id == tx.id))
-        ).scalar_one_or_none()
-        if intent:
-            plan = (await session.execute(select(Plan).where(Plan.id == intent.plan_id))).scalar_one()
-            server = (await session.execute(select(Server).where(Server.id == intent.server_id))).scalar_one()
-            user = (await session.execute(select(TelegramUser).where(TelegramUser.id == intent.user_id))).scalar_one()
-            intent.status = "paid"
-            # Prefer alias stored on intent if present; ensure unique
-            base_alias = (intent.alias or f"u{user.id}-{plan.title}").strip()
-            remark = await _generate_unique_alias(session, user.id, base_alias)
-            created_service = await create_service_after_payment(session, user, plan, server, remark=remark)
+        # For receipt-based purchases, tx.type is usually 'purchase_receipt'
+        if tx.type in {"purchase", "purchase_receipt"}:
+            intent = (
+                await session.execute(select(PurchaseIntent).where(PurchaseIntent.receipt_transaction_id == tx.id))
+            ).scalar_one_or_none()
+            if intent:
+                plan = (await session.execute(select(Plan).where(Plan.id == intent.plan_id))).scalar_one()
+                server = (await session.execute(select(Server).where(Server.id == intent.server_id))).scalar_one()
+                db_user = (await session.execute(select(TelegramUser).where(TelegramUser.id == intent.user_id))).scalar_one()
+                intent.status = "paid"
+                # Prefer alias stored on intent if present; ensure unique
+                base_alias = (intent.alias or f"u{db_user.id}-{plan.title}").strip()
+                remark = await _generate_unique_alias(session, db_user.id, base_alias)
+                created_service = await create_service_after_payment(session, db_user, plan, server, remark=remark)
+                created_service_url = created_service.subscription_url
+                user_chat_id = db_user.telegram_user_id
+        elif tx.type == "wallet_topup":
+            db_user = (await session.execute(select(TelegramUser).where(TelegramUser.id == tx.user_id))).scalar_one_or_none()
+            if db_user:
+                user_chat_id = db_user.telegram_user_id
 
-    # notify user and update wallet if needed
-    if tx.type in {"purchase", "purchase_receipt"} and created_service and user:
-        qr_bytes = generate_qr_with_template(created_service.subscription_url)
-        await callback.message.bot.send_message(chat_id=user.telegram_user_id, text="✅ خرید شما تایید شد. لینک اتصال:")
-        await callback.message.bot.send_message(chat_id=user.telegram_user_id, text=created_service.subscription_url)
-        await callback.message.bot.send_photo(chat_id=user.telegram_user_id, photo=BufferedInputFile(qr_bytes, filename="sub.png"), caption="QR اتصال")
-    elif tx.type == "wallet_topup":
-        # Wallet balance is already updated by PaymentProcessor
-        user = (await session.execute(select(TelegramUser).where(TelegramUser.id == tx.user_id))).scalar_one_or_none()
-        if user:
-            await callback.message.bot.send_message(chat_id=user.telegram_user_id, text=f"✅ شارژ کیف پول تایید شد. مبلغ {int(tx.amount):,} تومان افزوده شد.")
+    # notify user (outside DB session)
+    if created_service_url and user_chat_id:
+        qr_bytes = generate_qr_with_template(created_service_url)
+        await callback.message.bot.send_message(chat_id=user_chat_id, text="✅ خرید شما تایید شد. لینک اتصال:")
+        await callback.message.bot.send_message(chat_id=user_chat_id, text=created_service_url)
+        await callback.message.bot.send_photo(chat_id=user_chat_id, photo=BufferedInputFile(qr_bytes, filename="sub.png"), caption="QR اتصال")
+    elif user_chat_id and tx.type == "wallet_topup":
+        await callback.message.bot.send_message(chat_id=user_chat_id, text=f"✅ شارژ کیف پول تایید شد.")
 
     try:
         await callback.message.edit_reply_markup(reply_markup=None)
