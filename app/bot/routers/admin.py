@@ -566,7 +566,14 @@ async def admin_gift_system(message: Message):
     if not await _is_admin(message.from_user.id):
         await message.answer("شما دسترسی ادمین ندارید.")
         return
-    await message.answer("این بخش به‌زودی تکمیل می‌شود.")
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎁 هدیه کیف پول به کاربر", callback_data="gift:wallet:user")],
+        [InlineKeyboardButton(text="🎁 هدیه ترافیک به کاربر", callback_data="gift:traffic:user")],
+        [InlineKeyboardButton(text="🎁 هدیه گروهی (کیف پول)", callback_data="gift:wallet:bulk")],
+        [InlineKeyboardButton(text="🎁 هدیه گروهی (ترافیک)", callback_data="gift:traffic:bulk")],
+    ])
+    await message.answer("🎁 سیستم هدیه را انتخاب کنید:", reply_markup=kb)
 
 
 @router.message(F.text == "🎫 مدیریت تیکت‌ها")
@@ -2130,5 +2137,150 @@ async def plan_stats(message: Message):
         stats_text += f"{i}. {title}: {sales} فروش\n"
     
     await message.answer(stats_text)
+
+
+class GiftStates(StatesGroup):
+    choosing_type = State()
+    waiting_user_id = State()
+    waiting_amount = State()
+    waiting_description = State()
+    bulk_waiting_criteria = State()
+
+
+@router.callback_query(F.data.startswith("gift:"))
+async def gift_entry(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    _, gift_type, mode = callback.data.split(":")  # wallet|traffic, user|bulk
+    await state.update_data(gift_type=gift_type, mode=mode)
+    if mode == "user":
+        await state.set_state(GiftStates.waiting_user_id)
+        await callback.message.answer("شناسه کاربر (User ID تلگرام) را وارد کنید:")
+    else:
+        await state.set_state(GiftStates.bulk_waiting_criteria)
+        await callback.message.answer("معیارهای هدیه گروهی را به شکل JSON ارسال کنید (مثلاً {\"segment\": \"active_users\"}).")
+    await callback.answer()
+
+
+@router.message(GiftStates.waiting_user_id)
+async def gift_user_id(message: Message, state: FSMContext):
+    try:
+        tg_id = int((message.text or "").strip())
+    except Exception:
+        await message.answer("شناسه نامعتبر. فقط عدد ارسال کنید.")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        user = (await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == tg_id))).scalar_one_or_none()
+    if not user:
+        await message.answer("کاربر یافت نشد.")
+        return
+    await state.update_data(target_user_id=user.id, target_user_chat=tg_id)
+    await state.set_state(GiftStates.waiting_amount)
+    data = await state.get_data()
+    await message.answer("مبلغ (تومان) برای کیف پول یا مقدار گیگ برای ترافیک را وارد کنید:")
+
+
+@router.message(GiftStates.bulk_waiting_criteria)
+async def gift_bulk_criteria(message: Message, state: FSMContext):
+    import json as _json
+    raw = (message.text or "").strip()
+    try:
+        criteria = _json.loads(raw) if raw else {}
+    except Exception:
+        await message.answer("JSON نامعتبر. دوباره ارسال کنید.")
+        return
+    await state.update_data(bulk_criteria=criteria)
+    await state.set_state(GiftStates.waiting_amount)
+    await message.answer("مبلغ (تومان) برای کیف پول یا مقدار گیگ برای ترافیک را وارد کنید:")
+
+
+@router.message(GiftStates.waiting_amount)
+async def gift_amount(message: Message, state: FSMContext):
+    txt = (message.text or "").strip().replace(",", "")
+    try:
+        amount = int(float(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره ارسال کنید:")
+        return
+    await state.update_data(amount=amount)
+    await state.set_state(GiftStates.waiting_description)
+    await message.answer("توضیحات هدیه را وارد کنید (اختیاری، خالی برای رد شدن):")
+
+
+@router.message(GiftStates.waiting_description)
+async def gift_finalize(message: Message, state: FSMContext):
+    desc = (message.text or "").strip()
+    data = await state.get_data()
+    gift_type = data.get("gift_type")  # wallet | traffic
+    mode = data.get("mode")            # user | bulk
+    amount = int(data.get("amount", 0))
+    admin_chat_id = message.from_user.id
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import Gift as GiftModel
+        admin_user = (await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == admin_chat_id))).scalar_one_or_none()
+        if mode == "user":
+            user_id = data.get("target_user_id")
+            to_user = (await session.execute(select(TelegramUser).where(TelegramUser.id == user_id))).scalar_one_or_none()
+            if not to_user:
+                await message.answer("کاربر یافت نشد.")
+                await state.clear()
+                return
+            if gift_type == "wallet":
+                to_user.wallet_balance = (to_user.wallet_balance or 0) + amount
+                g = GiftModel(from_admin_id=(admin_user.id if admin_user else 0), to_user_id=to_user.id, type="wallet_balance", amount=amount, description=desc or None, is_bulk=False, total_count=1, processed_count=1, status="completed")
+                session.add(g)
+            else:
+                # traffic gift: add to all active services of user (simplified: increase traffic_limit_gb on DB)
+                from sqlalchemy import select as _select
+                from models.service import Service
+                services = (await session.execute(_select(Service).where(Service.user_id == to_user.id, Service.is_active == True))).scalars().all()
+                for svc in services:
+                    current = float(svc.traffic_limit_gb or 0)
+                    svc.traffic_limit_gb = current + amount
+                g = GiftModel(from_admin_id=(admin_user.id if admin_user else 0), to_user_id=to_user.id, type="traffic_gb", amount=amount, description=desc or None, is_bulk=False, total_count=len(services) or 1, processed_count=len(services) or 1, status="completed")
+                session.add(g)
+            try:
+                await message.bot.send_message(chat_id=data.get("target_user_chat"), text=f"🎁 هدیه برای شما ثبت شد: {('موجودی '+str(amount)+' تومان' if gift_type=='wallet' else str(amount)+' گیگ ترافیک')}.")
+            except Exception:
+                pass
+            await message.answer("✅ هدیه اعمال شد.")
+        else:
+            # bulk gift: select recipients via service
+            criteria = data.get("bulk_criteria") or {}
+            try:
+                recipients = await ScheduledMessageService._generate_recipient_list(session=session, target_type="segment", target_users=None, target_segments=[criteria.get("segment", "active_users")])
+            except Exception:
+                recipients = []
+            total = len(recipients)
+            processed = 0
+            g = GiftModel(from_admin_id=(admin_user.id if admin_user else 0), to_user_id=None, type=("wallet_balance" if gift_type=="wallet" else "traffic_gb"), amount=amount, description=desc or None, is_bulk=True, target_criteria=(json.dumps(criteria) if criteria else None), total_count=total, processed_count=0, status="processing")
+            session.add(g)
+            await session.flush()
+            # naive immediate processing
+            from sqlalchemy import select as _select
+            for uid in recipients:
+                user = (await session.execute(_select(TelegramUser).where(TelegramUser.id == uid))).scalar_one_or_none()
+                if not user:
+                    continue
+                if gift_type == "wallet":
+                    user.wallet_balance = (user.wallet_balance or 0) + amount
+                else:
+                    from models.service import Service
+                    services = (await session.execute(_select(Service).where(Service.user_id == user.id, Service.is_active == True))).scalars().all()
+                    for svc in services:
+                        current = float(svc.traffic_limit_gb or 0)
+                        svc.traffic_limit_gb = current + amount
+                processed += 1
+                try:
+                    await message.bot.send_message(chat_id=user.telegram_user_id, text=f"🎁 هدیه گروهی برای شما اعمال شد: {('موجودی '+str(amount)+' تومان' if gift_type=='wallet' else str(amount)+' گیگ ترافیک')}.")
+                except Exception:
+                    pass
+            g.processed_count = processed
+            g.status = "completed"
+            await message.answer(f"✅ هدیه گروهی اعمال شد برای {processed} کاربر از {total}.")
+    await state.clear()
 
 
