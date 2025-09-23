@@ -299,7 +299,7 @@ async def purchase_service(
             raise HTTPException(status_code=404, detail="User not found")
         
         plan_id = int(payload.get("plan_id")) if payload and payload.get("plan_id") else None
-        desired_alias = (payload.get("alias") or "").strip()
+        desired_alias = (payload.get("alias") or payload.get("service_name") or payload.get("name") or "").strip()
         if not desired_alias:
             raise HTTPException(status_code=400, detail="Service name (alias) is required")
         # Get plan
@@ -327,14 +327,25 @@ async def purchase_service(
         base_alias = desired_alias if desired_alias else f"u{user.id}-{plan.title}"
         remark = base_alias
         try:
-            # ensure uniqueness per user
             from sqlalchemy import select
-            exists = await session.execute(select(Service.id).where(Service.user_id == user.id, Service.remark == remark))
-            exists = exists.first() is not None
+            exists = (await session.execute(
+                select(Service.id).where(Service.user_id == user.id, Service.remark == remark)
+            )).first() is not None
             if exists:
                 import random
-                suffix = f"-{random.randint(10,99)}"
-                remark = f"{base_alias}{suffix}"
+                tried = set()
+                for _ in range(50):
+                    n = random.randint(10, 99)
+                    if n in tried:
+                        continue
+                    tried.add(n)
+                    candidate = f"{base_alias}-{n}"
+                    exists = (await session.execute(
+                        select(Service.id).where(Service.user_id == user.id, Service.remark == candidate)
+                    )).first() is not None
+                    if not exists:
+                        remark = candidate
+                        break
         except Exception:
             pass
 
