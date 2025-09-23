@@ -216,6 +216,10 @@ async def pay_with_wallet(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("buy:pay_receipt:"))
 async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     plan_id = int(callback.data.split(":")[-1])
     async with get_db_session() as session:
         from sqlalchemy import select
@@ -261,11 +265,21 @@ async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
         await session.flush()
         await state.update_data(purchase_intent_id=intent.id)
 
-    await callback.message.answer(
-        f"{paid:,} تومان از کیف پول شما کسر شد. لطفاً رسید کارت‌به‌کارت مبلغ باقی‌مانده ({due:,} تومان) را ارسال کنید."
-    )
+    try:
+        await callback.message.answer(
+            f"{paid:,} تومان از کیف پول شما کسر شد. لطفاً رسید کارت‌به‌کارت مبلغ باقی‌مانده ({due:,} تومان) را ارسال کنید."
+        )
+    except Exception:
+        await callback.message.answer("لطفاً تصویر رسید کارت‌به‌کارت را ارسال کنید.")
     await state.set_state(PurchaseStates.waiting_purchase_receipt)
-    await callback.answer()
+
+@router.callback_query(PurchaseStates.waiting_alias, F.data.startswith("buy:pay_wallet:"))
+async def pay_wallet_from_alias(callback: CallbackQuery, state: FSMContext):
+    return await pay_with_wallet(callback, state)
+
+@router.callback_query(PurchaseStates.waiting_alias, F.data.startswith("buy:pay_receipt:"))
+async def pay_receipt_from_alias(callback: CallbackQuery, state: FSMContext):
+    return await start_receipt_flow(callback, state)
 
 
 @router.message(PurchaseStates.waiting_purchase_receipt, F.photo)
