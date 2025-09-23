@@ -91,6 +91,58 @@ async def admin_entry(message: Message):
     await message.answer("پنل مدیریت:", reply_markup=admin_kb())
 
 
+@router.message(Command("whoami"))
+async def whoami(message: Message):
+    telegram_id = message.from_user.id
+    admin_by_env = telegram_id in set(settings.admin_ids)
+    admin_by_db = False
+    async with get_db_session() as session:
+        from sqlalchemy import select, func
+        user = (
+            await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == telegram_id))
+        ).scalar_one_or_none()
+        admin_by_db = bool(user and user.is_admin)
+        admins_count = (
+            await session.execute(select(func.count(TelegramUser.id)).where(TelegramUser.is_admin == True))
+        ).scalar() or 0
+    await message.answer(
+        f"ID: {telegram_id}\nadmin_by_env: {admin_by_env}\nadmin_by_db: {admin_by_db}\nadmins_count: {admins_count}"
+    )
+
+
+@router.message(Command("promote_me"))
+async def promote_me(message: Message):
+    telegram_id = message.from_user.id
+    # Only allow if in env-admins OR there are no admins yet (bootstrap)
+    allowed = (telegram_id in set(settings.admin_ids))
+    async with get_db_session() as session:
+        from sqlalchemy import select, func
+        admins_count = (
+            await session.execute(select(func.count(TelegramUser.id)).where(TelegramUser.is_admin == True))
+        ).scalar() or 0
+        if admins_count == 0:
+            allowed = True
+        if not allowed:
+            await message.answer("اجازه ندارید.")
+            return
+        user = (
+            await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == telegram_id))
+        ).scalar_one_or_none()
+        if not user:
+            # Create minimal user
+            user = TelegramUser(
+                telegram_user_id=telegram_id,
+                username=message.from_user.username,
+                first_name=message.from_user.first_name,
+                last_name=message.from_user.last_name,
+                is_admin=True,
+            )
+            session.add(user)
+        else:
+            user.is_admin = True
+    await message.answer("✅ شما به عنوان ادمین ثبت شدید. دستور /admin را بزنید.")
+
+
 @router.message(F.text == "📊 داشبورد")
 async def admin_dashboard(message: Message):
     if not await _is_admin(message.from_user.id):
