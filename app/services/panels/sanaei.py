@@ -413,6 +413,7 @@ class SanaeiPanelClient(PanelClient):
             used_bytes = 0
             total_bytes = 0
             days_left = 0
+            found_any = False
             try:
                 import time as _time
                 # data can be dict or list
@@ -443,6 +444,8 @@ class SanaeiPanelClient(PanelClient):
                         if exp:
                             rem_days = max(0, int((exp/1000 - _time.time()) // 86400))
                             days_left = max(days_left, rem_days)
+                        # consider an entry present as found
+                        found_any = True
                     except Exception:
                         continue
             except Exception:
@@ -450,7 +453,7 @@ class SanaeiPanelClient(PanelClient):
             def _gb(x: int) -> float:
                 return round(float(x) / (1024 * 1024 * 1024), 3)
             remaining_gb = max(0.0, _gb(total_bytes - used_bytes)) if total_bytes else 0.0
-            if not ok:
+            if not ok or not found_any:
                 raise httpx.HTTPError("client not found")
             return {"used_gb": _gb(used_bytes), "remaining_gb": remaining_gb, "total_gb": _gb(total_bytes), "days_left": days_left}
 
