@@ -62,6 +62,7 @@ def admin_kb() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="👥 مدیریت کاربران"), KeyboardButton(text="🖥️ مدیریت سرورها")],
             [KeyboardButton(text="📁 مدیریت دسته‌ها"), KeyboardButton(text="📦 مدیریت پلن‌ها")],
             [KeyboardButton(text="🎁 سیستم هدیه"), KeyboardButton(text="📢 پیام همگانی")],
+            [KeyboardButton(text="🏷️ مدیریت تخفیف‌ها"), KeyboardButton(text="📈 گزارش‌ها")],
             [KeyboardButton(text="🎫 مدیریت تیکت‌ها"), KeyboardButton(text="⚙️ تنظیمات ربات")],
         ],
         resize_keyboard=True,
@@ -828,6 +829,10 @@ async def admin_bot_settings(message: Message):
         bot_user = await get_val("bot_username", settings.bot_username or "")
         ref_pct = await get_val("referral_percent", str(settings.referral_percent))
         ref_fix = await get_val("referral_fixed", str(settings.referral_fixed))
+        ref_min_purchase = await get_val("referral_min_purchase", "0")
+        ref_reward_type = await get_val("referral_reward_type", "percent")  # percent|fixed
+        ref_level2_pct = await get_val("referral_level2_percent", "0")
+        ref_invite_limit = await get_val("referral_invite_limit", "0")
         banner = await get_val("sales_message_banner", "")
         receipt_help = await get_val("payment_receipt_instructions", "")
         stars_on = (await get_val("enable_stars", str(bool(settings.enable_stars)))).lower() in {"1","true","yes"}
@@ -852,7 +857,7 @@ async def admin_bot_settings(message: Message):
         f"پرداخت‌ها → کیف پول: {'✅' if wallet_on else '❌'} | کارت‌به‌کارت: {'✅' if card_on else '❌'} | ستاره: {'✅' if stars_on else '❌'} | زرین‌پال: {'✅' if zarin_on else '❌'}\n"
         f"حداقل/حداکثر شارژ: {min_topup} / {max_topup} | محدودیت روزانه: {max_daily_tx} تراکنش / {max_daily_amt} تومان\n"
         f"رسید خودکار: {'✅' if auto_approve else '❌'} | تایید تلفن: {'✅' if phone_verify else '❌'} | اکانت تست: {'✅' if test_accounts else '❌'} | ضدتقلب: {'✅' if fraud_on else '❌'}\n"
-        f"ریفرال: {ref_pct}% + {ref_fix}\n"
+        f"ریفرال: {ref_pct}% + {ref_fix} | نوع پاداش: {ref_reward_type} | حداقل خرید: {ref_min_purchase} | لول۲: {ref_level2_pct}% | سقف دعوت: {ref_invite_limit}\n"
         f"کانال پشتیبانی: {support or '-'} | نام کاربری ربات: {('@'+bot_user) if bot_user else '-'}\n"
         f"وب‌اپ: {webapp_url or '-'} | وضعیت: {status_url or '-'} | پنل: {panel_mode or '-'}\n"
         f"کارت بانکی: {card_number or '-'} | دارنده: {card_holder or '-'} | شبا: {iban or '-'}\n"
@@ -874,6 +879,10 @@ async def admin_bot_settings(message: Message):
         [InlineKeyboardButton(text=("🤖 رسید خودکار"), callback_data="botset:toggle_auto_approve"), InlineKeyboardButton(text=("📞 تایید شماره"), callback_data="botset:toggle_phone_verif")],
         [InlineKeyboardButton(text=("🧪 اکانت تست"), callback_data="botset:toggle_test_accounts"), InlineKeyboardButton(text=("🧠 ضدتقلب"), callback_data="botset:toggle_fraud")],
         [InlineKeyboardButton(text="👥 درصد ریفرال", callback_data="botset:set_ref_pct"), InlineKeyboardButton(text="👥 مبلغ ثابت ریفرال", callback_data="botset:set_ref_fix")],
+        [InlineKeyboardButton(text="🧮 نوع پاداش ریفرال", callback_data="botset:set_ref_type")],
+        [InlineKeyboardButton(text="💵 حداقل مبلغ خرید برای پاداش", callback_data="botset:set_ref_min")],
+        [InlineKeyboardButton(text="👥 درصد لول۲", callback_data="botset:set_ref_level2")],
+        [InlineKeyboardButton(text="🔢 سقف تعداد دعوت", callback_data="botset:set_ref_inv_limit")],
         [InlineKeyboardButton(text="🆔 نام کاربری ربات", callback_data="botset:set_bot_user"), InlineKeyboardButton(text="📣 کانال پشتیبانی", callback_data="botset:set_support")],
         [InlineKeyboardButton(text="🔗 کانال الزامی", callback_data="botset:set_join_chan")],
         [InlineKeyboardButton(text="🌐 آدرس وب‌اپ", callback_data="botset:set_webapp_url"), InlineKeyboardButton(text="📈 آدرس وضعیت", callback_data="botset:set_status_url")],
@@ -954,6 +963,10 @@ class BotSetStates(StatesGroup):
     waiting_rules = State()
     waiting_help = State()
     waiting_faq = State()
+    waiting_ref_type = State()
+    waiting_ref_min = State()
+    waiting_ref_level2 = State()
+    waiting_ref_inv_limit = State()
 
 
 @router.callback_query(F.data == "botset:set_min_topup")
@@ -1570,6 +1583,186 @@ async def botset_faq_value(message: Message, state: FSMContext):
             session.add(BotSettings(key="faq_link", value=val, data_type="string", description="faq link"))
     await state.clear()
     await message.answer("✅ لینک FAQ بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_ref_pct")
+async def botset_set_ref_pct(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_ref_pct)
+    await callback.message.answer("درصد ریفرال را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_ref_pct)
+async def botset_ref_pct_value(message: Message, state: FSMContext):
+    txt = (message.text or "").strip().replace(",", "")
+    try:
+        val = str(int(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "referral_percent"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="referral_percent", value=val, data_type="int", description="referral percent"))
+    await state.clear()
+    await message.answer("✅ درصد ریفرال بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_ref_fix")
+async def botset_set_ref_fix(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_ref_fix)
+    await callback.message.answer("مبلغ ثابت ریفرال (تومان) را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_ref_fix)
+async def botset_ref_fix_value(message: Message, state: FSMContext):
+    txt = (message.text or "").strip().replace(",", "")
+    try:
+        val = str(int(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "referral_fixed"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="referral_fixed", value=val, data_type="int", description="referral fixed amount"))
+    await state.clear()
+    await message.answer("✅ مبلغ ثابت ریفرال بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_ref_type")
+async def botset_set_ref_type(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_ref_type)
+    await callback.message.answer("نوع پاداش ریفرال را وارد کنید: percent یا fixed")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_ref_type)
+async def botset_ref_type_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip().lower()
+    if val not in {"percent", "fixed"}:
+        await message.answer("مقدار نامعتبر. فقط percent یا fixed")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "referral_reward_type"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="referral_reward_type", value=val, data_type="string", description="referral reward type"))
+    await state.clear()
+    await message.answer("✅ نوع پاداش ریفرال بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_ref_min")
+async def botset_set_ref_min(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_ref_min)
+    await callback.message.answer("حداقل مبلغ خرید برای تعلق پاداش (تومان):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_ref_min)
+async def botset_ref_min_value(message: Message, state: FSMContext):
+    txt = (message.text or "").strip().replace(",", "")
+    try:
+        val = str(int(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "referral_min_purchase"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="referral_min_purchase", value=val, data_type="int", description="min purchase for referral reward"))
+    await state.clear()
+    await message.answer("✅ حداقل خرید برای پاداش بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_ref_level2")
+async def botset_set_ref_level2(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_ref_level2)
+    await callback.message.answer("درصد پاداش سطح دوم (0-100):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_ref_level2)
+async def botset_ref_level2_value(message: Message, state: FSMContext):
+    try:
+        val = int((message.text or "").strip())
+        if val < 0 or val > 100:
+            raise ValueError
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید (0-100):")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "referral_level2_percent"))).scalar_one_or_none()
+        if row:
+            row.value = str(val)
+        else:
+            session.add(BotSettings(key="referral_level2_percent", value=str(val), data_type="int", description="level-2 referral percent"))
+    await state.clear()
+    await message.answer("✅ درصد سطح دوم بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_ref_inv_limit")
+async def botset_set_ref_inv_limit(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_ref_inv_limit)
+    await callback.message.answer("سقف تعداد دعوت برای دریافت پاداش (0 برای نامحدود):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_ref_inv_limit)
+async def botset_ref_inv_limit_value(message: Message, state: FSMContext):
+    try:
+        val = int((message.text or "").strip())
+        if val < 0:
+            raise ValueError
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "referral_invite_limit"))).scalar_one_or_none()
+        if row:
+            row.value = str(val)
+        else:
+            session.add(BotSettings(key="referral_invite_limit", value=str(val), data_type="int", description="referral invite limit"))
+    await state.clear()
+    await message.answer("✅ سقف دعوت بروزرسانی شد.")
 
 
 @router.message(F.text == "📋 بررسی رسیدها")
@@ -2462,5 +2655,77 @@ async def gift_finalize(message: Message, state: FSMContext):
             g.status = "completed"
             await message.answer(f"✅ هدیه گروهی اعمال شد برای {processed} کاربر از {total}.")
     await state.clear()
+
+
+@router.message(F.text == "🏷️ مدیریت تخفیف‌ها")
+async def admin_discounts_menu(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("شما دسترسی ادمین ندارید.")
+        return
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ افزودن کد", callback_data="disc:add")],
+        [InlineKeyboardButton(text="📃 لیست کدها", callback_data="disc:list")],
+        [InlineKeyboardButton(text="📊 آمار کدها", callback_data="disc:stats")],
+        [InlineKeyboardButton(text="🔄 فعال/غیرفعال", callback_data="disc:toggle")],
+        [InlineKeyboardButton(text="🗑️ حذف کد", callback_data="disc:delete")],
+    ])
+    await message.answer("🏷️ مدیریت تخفیف‌ها:", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("disc:"))
+async def admin_discounts_actions(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    action = callback.data.split(":")[1]
+    # Reuse command handlers by sending command text
+    if action == "add":
+        await callback.message.answer("/add_discount")
+    elif action == "list":
+        await callback.message.answer("/list_discounts")
+    elif action == "stats":
+        await callback.message.answer("/discount_stats")
+    elif action == "toggle":
+        await callback.message.answer("/toggle_discount")
+    elif action == "delete":
+        await callback.message.answer("/delete_discount")
+    await callback.answer()
+
+
+@router.message(F.text == "📈 گزارش‌ها")
+async def admin_reports_menu(message: Message):
+    if not await _is_admin(message.from_user.id):
+        await message.answer("شما دسترسی ادمین ندارید.")
+        return
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="روزانه", callback_data="report:daily")],
+        [InlineKeyboardButton(text="هفتگی", callback_data="report:weekly")],
+        [InlineKeyboardButton(text="ماهانه", callback_data="report:monthly")],
+        [InlineKeyboardButton(text="آمار کاربران", callback_data="report:users")],
+        [InlineKeyboardButton(text="وضعیت سرورها", callback_data="report:servers")],
+    ])
+    await message.answer("📈 گزارش‌ها:", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("report:"))
+async def admin_reports_actions(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    action = callback.data.split(":")[1]
+    # Call corresponding handlers
+    if action == "daily":
+        await daily_report(callback.message)
+    elif action == "weekly":
+        await weekly_report(callback.message)
+    elif action == "monthly":
+        await monthly_report(callback.message)
+    elif action == "users":
+        await user_analytics(callback.message)
+    elif action == "servers":
+        await server_status(callback.message)
+    await callback.answer()
 
 
