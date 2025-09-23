@@ -10,6 +10,7 @@ let plans = [];
 document.addEventListener('DOMContentLoaded', function() {
     tg.ready();
     tg.expand();
+    try { tg.MainButton.hide && tg.MainButton.hide(); } catch {}
     
     // Respect custom dark theme; only apply Telegram theme if provided and high-contrast
     if (tg.themeParams && tg.themeParams.bg_color) {
@@ -383,7 +384,8 @@ async function buyService() {
     
     if (confirmed) {
         try {
-            tg.MainButton.showProgress && tg.MainButton.showProgress(true);
+            const btn = document.getElementById('buy-button');
+            if (btn) btn.disabled = true;
             const response = await fetch('/api/purchase', {
                 method: 'POST',
                 headers: {
@@ -415,27 +417,15 @@ async function buyService() {
             console.error('Error purchasing service:', error);
             showError('خطا در خرید سرویس');
         } finally {
-            tg.MainButton.hideProgress && tg.MainButton.hideProgress();
+            const btn = document.getElementById('buy-button');
+            if (btn) btn.disabled = false;
         }
     }
 }
 
 function updateBuyMainButton(plan) {
-    try {
-        const selectedPlanId = document.getElementById('plan-select').value;
-        const selected = plan || plans.find(p => p.id == selectedPlanId);
-        if (selected) {
-            tg.MainButton.setText(`خرید: ${selected.title} (${selected.price_irr.toLocaleString('fa-IR')} تومان)`);
-            tg.MainButton.show();
-            tg.MainButton.onClick(async () => {
-                await buyService();
-            });
-        } else {
-            tg.MainButton.hide();
-        }
-    } catch (e) {
-        // MainButton may be unavailable in some clients
-    }
+    // Disable Telegram MainButton for this app; we use in-page button instead
+    try { tg.MainButton.hide && tg.MainButton.hide(); tg.MainButton.offClick && tg.MainButton.offClick(); } catch {}
 }
 
 function showServiceDetails(serviceId) {
