@@ -574,7 +574,170 @@ async def admin_manage_tickets(message: Message):
     if not await _is_admin(message.from_user.id):
         await message.answer("شما دسترسی ادمین ندارید.")
         return
-    await message.answer("این بخش به‌زودی تکمیل می‌شود.")
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📂 تیکت‌های باز", callback_data="tickets:list_open")],
+        [InlineKeyboardButton(text="🕘 تیکت‌های اخیر", callback_data="tickets:list_recent")],
+    ])
+    await message.answer("🎫 مدیریت تیکت‌ها", reply_markup=kb)
+
+
+def _ticket_actions_kb(ticket_id: int):
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📝 پاسخ", callback_data=f"tickets:reply:{ticket_id}"), InlineKeyboardButton(text="🔍 جزئیات", callback_data=f"tickets:details:{ticket_id}")],
+            [InlineKeyboardButton(text="🗂️ بستن", callback_data=f"tickets:close:{ticket_id}"), InlineKeyboardButton(text="🔓 بازگشایی", callback_data=f"tickets:reopen:{ticket_id}")],
+        ]
+    )
+
+
+@router.callback_query(F.data == "tickets:list_open")
+async def tickets_list_open(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        tickets = (await session.execute(select(Ticket).where(Ticket.status == "open").order_by(Ticket.id.desc()).limit(10))).scalars().all()
+    if not tickets:
+        await callback.message.edit_text("تیکت باز یافت نشد.")
+        await callback.answer()
+        return
+    await callback.message.edit_text("📂 تیکت‌های باز (۱۰ مورد آخر):")
+    for t in tickets:
+        await callback.message.answer(f"#{t.id} | {t.subject}", reply_markup=_ticket_actions_kb(t.id))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "tickets:list_recent")
+async def tickets_list_recent(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        tickets = (await session.execute(select(Ticket).order_by(Ticket.id.desc()).limit(10))).scalars().all()
+    if not tickets:
+        await callback.message.edit_text("تیکتی یافت نشد.")
+        await callback.answer()
+        return
+    await callback.message.edit_text("🕘 تیکت‌های اخیر:")
+    for t in tickets:
+        status = "✅ بسته" if t.status == "closed" else "⏳ باز"
+        await callback.message.answer(f"#{t.id} | {status} | {t.subject}", reply_markup=_ticket_actions_kb(t.id))
+    await callback.answer()
+
+
+class TicketAdminStates(StatesGroup):
+    waiting_reply = State()
+    replying_ticket_id = State()
+
+
+@router.callback_query(F.data.startswith("tickets:reply:"))
+async def tickets_reply_begin(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    tid = int(callback.data.split(":")[-1])
+    await state.update_data(ticket_id=tid)
+    await state.set_state(TicketAdminStates.waiting_reply)
+    await callback.message.answer(f"📝 پاسخ خود به تیکت #{tid} را ارسال کنید:")
+    await callback.answer()
+
+
+@router.message(TicketAdminStates.waiting_reply)
+async def tickets_reply_save(message: Message, state: FSMContext):
+    if not await _is_admin(message.from_user.id):
+        return
+    data = await state.get_data()
+    tid = data.get("ticket_id")
+    if not tid:
+        await state.clear()
+        await message.answer("خطا در وضعیت. از ابتدا تلاش کنید.")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        t = (await session.execute(select(Ticket).where(Ticket.id == tid))).scalar_one_or_none()
+        if not t:
+            await message.answer("تیکت یافت نشد.")
+            await state.clear()
+            return
+        admin_user = (await session.execute(select(TelegramUser).where(TelegramUser.telegram_user_id == message.from_user.id))).scalar_one_or_none()
+        tm = TicketMessage(ticket_id=t.id, sender_user_id=(admin_user.id if admin_user else 0), body=(message.text or "").strip(), by_admin=True)
+        session.add(tm)
+        user = (await session.execute(select(TelegramUser).where(TelegramUser.id == t.user_id))).scalar_one_or_none()
+    await state.clear()
+    await message.answer("✅ پاسخ ارسال شد.")
+    if user:
+        try:
+            await message.bot.send_message(chat_id=user.telegram_user_id, text=f"پاسخ پشتیبانی به تیکت #{tid}:\n{(message.text or '').strip()}")
+        except Exception:
+            pass
+
+
+@router.callback_query(F.data.startswith("tickets:close:"))
+async def tickets_close(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    tid = int(callback.data.split(":")[-1])
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        t = (await session.execute(select(Ticket).where(Ticket.id == tid))).scalar_one_or_none()
+        if not t:
+            await callback.answer("یافت نشد", show_alert=True)
+            return
+        t.status = "closed"
+        user = (await session.execute(select(TelegramUser).where(TelegramUser.id == t.user_id))).scalar_one_or_none()
+    await callback.answer("بسته شد")
+    await callback.message.answer(f"تیکت #{tid} بسته شد.")
+    if user:
+        try:
+            await callback.message.bot.send_message(chat_id=user.telegram_user_id, text=f"تیکت #{tid} توسط پشتیبانی بسته شد.")
+        except Exception:
+            pass
+
+
+@router.callback_query(F.data.startswith("tickets:reopen:"))
+async def tickets_reopen(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    tid = int(callback.data.split(":")[-1])
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        t = (await session.execute(select(Ticket).where(Ticket.id == tid))).scalar_one_or_none()
+        if not t:
+            await callback.answer("یافت نشد", show_alert=True)
+            return
+        t.status = "open"
+    await callback.answer("باز شد")
+    await callback.message.answer(f"تیکت #{tid} بازگشایی شد.")
+
+
+@router.callback_query(F.data.startswith("tickets:details:"))
+async def tickets_details(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    tid = int(callback.data.split(":")[-1])
+    async with get_db_session() as session:
+        from sqlalchemy import select, desc
+        t = (await session.execute(select(Ticket).where(Ticket.id == tid))).scalar_one_or_none()
+        if not t:
+            await callback.answer("یافت نشد", show_alert=True)
+            return
+        msgs = (await session.execute(select(TicketMessage).where(TicketMessage.ticket_id == t.id).order_by(desc(TicketMessage.id)).limit(5))).scalars().all()
+    text = f"جزئیات تیکت #{tid} | {t.subject}\nوضعیت: {'باز' if t.status=='open' else 'بسته'}\n\nآخرین پیام‌ها:\n"
+    for m in reversed(msgs):
+        who = "پشتیبانی" if m.by_admin else "کاربر"
+        text += f"- {who}: {m.body}\n"
+    try:
+        await callback.message.edit_text(text)
+    except Exception:
+        await callback.message.answer(text)
+    await callback.answer()
 
 
 @router.message(F.text == "⚙️ تنظیمات ربات")
