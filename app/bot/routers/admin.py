@@ -581,7 +581,135 @@ async def admin_bot_settings(message: Message):
     if not await _is_admin(message.from_user.id):
         await message.answer("شما دسترسی ادمین ندارید.")
         return
-    await message.answer("این بخش به‌زودی تکمیل می‌شود.")
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        def get(key: str, default: str) -> str:
+            row = (yield from session.execute(select(BotSettings).where(BotSettings.key == key))).scalar_one_or_none()  # type: ignore
+            return row.value if row else default
+        # read current values (fallbacks from settings)
+        sales_enabled = get("sales_enabled", str(bool(settings.sales_enabled))).lower() in {"1","true","yes"}
+        join_lock = get("join_channel_required", str(bool(settings.join_channel_required))).lower() in {"1","true","yes"}
+        min_topup = get("min_topup_amount", str(settings.min_topup_amount))
+        max_topup = get("max_topup_amount", str(settings.max_topup_amount))
+    text = (
+        "⚙️ تنظیمات ربات\n\n" \
+        f"فروش فعال: {'✅' if sales_enabled else '❌'}\n" \
+        f"الزام عضویت کانال: {'✅' if join_lock else '❌'}\n" \
+        f"حداقل شارژ کیف پول: {min_topup}\n" \
+        f"حداکثر شارژ کیف پول: {max_topup}\n"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=("🔴 غیرفعال کردن فروش" if sales_enabled else "🟢 فعال کردن فروش"), callback_data="botset:toggle_sales")],
+        [InlineKeyboardButton(text=("🔓 برداشتن الزام عضویت" if join_lock else "🔒 الزام عضویت کانال"), callback_data="botset:toggle_join")],
+        [InlineKeyboardButton(text="✏️ تنظیم حداقل شارژ", callback_data="botset:set_min_topup")],
+        [InlineKeyboardButton(text="✏️ تنظیم حداکثر شارژ", callback_data="botset:set_max_topup")],
+    ])
+    await message.answer(text, reply_markup=kb)
+
+
+@router.callback_query(F.data == "botset:toggle_sales")
+async def botset_toggle_sales(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "sales_enabled"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.sales_enabled)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="sales_enabled", value=newv, data_type="bool", description="enable/disable sales"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+@router.callback_query(F.data == "botset:toggle_join")
+async def botset_toggle_join(callback: CallbackQuery):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "join_channel_required"))).scalar_one_or_none()
+        cur = (row.value.lower() in {"1","true","yes"}) if row else bool(settings.join_channel_required)
+        newv = "false" if cur else "true"
+        if row:
+            row.value = newv
+        else:
+            session.add(BotSettings(key="join_channel_required", value=newv, data_type="bool", description="require join channel"))
+    await callback.answer("به‌روزرسانی شد")
+    await admin_bot_settings(callback.message)
+
+
+class BotSetStates(StatesGroup):
+    waiting_min_topup = State()
+    waiting_max_topup = State()
+
+
+@router.callback_query(F.data == "botset:set_min_topup")
+async def botset_set_min(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_min_topup)
+    await callback.message.answer("حداقل مبلغ شارژ (تومان) را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_min_topup)
+async def botset_min_value(message: Message, state: FSMContext):
+    txt = (message.text or "").strip().replace(",", "")
+    try:
+        val = str(int(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "min_topup_amount"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="min_topup_amount", value=val, data_type="int", description="minimum wallet topup"))
+    await state.clear()
+    await message.answer("✅ حداقل شارژ بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_max_topup")
+async def botset_set_max(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_max_topup)
+    await callback.message.answer("حداکثر مبلغ شارژ (تومان) را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_max_topup)
+async def botset_max_value(message: Message, state: FSMContext):
+    txt = (message.text or "").strip().replace(",", "")
+    try:
+        val = str(int(txt))
+    except Exception:
+        await message.answer("عدد نامعتبر. دوباره وارد کنید:")
+        return
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "max_topup_amount"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="max_topup_amount", value=val, data_type="int", description="maximum wallet topup"))
+    await state.clear()
+    await message.answer("✅ حداکثر شارژ بروزرسانی شد.")
 
 
 @router.message(F.text == "📋 بررسی رسیدها")
