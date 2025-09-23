@@ -23,6 +23,31 @@ from models.scheduled_messages import MessageType, MessageStatus, ScheduledMessa
 
 
 router = Router(name="admin")
+# Ensure alias is unique for a user by appending -NN if needed
+async def _generate_unique_alias(session, user_id: int, base_alias: str) -> str:
+    from sqlalchemy import select
+    from models.service import Service
+    alias = base_alias
+    exists = (await session.execute(
+        select(Service.id).where(Service.user_id == user_id, Service.remark == alias)
+    )).first() is not None
+    if not exists:
+        return alias
+    import random
+    tried = set()
+    for _ in range(50):
+        n = random.randint(10, 99)
+        if n in tried:
+            continue
+        tried.add(n)
+        candidate = f"{base_alias}-{n}"
+        exists = (await session.execute(
+            select(Service.id).where(Service.user_id == user_id, Service.remark == candidate)
+        )).first() is not None
+        if not exists:
+            return candidate
+    return f"{base_alias}-99"
+
 
 
 class ManageUserStates(StatesGroup):
@@ -635,8 +660,9 @@ async def cb_approve_tx(callback: CallbackQuery):
             server = (await session.execute(select(Server).where(Server.id == intent.server_id))).scalar_one()
             user = (await session.execute(select(TelegramUser).where(TelegramUser.id == intent.user_id))).scalar_one()
             intent.status = "paid"
-            # Prefer alias stored on intent if present
-            remark = intent.alias or f"u{user.id}-{plan.title}"
+            # Prefer alias stored on intent if present; ensure unique
+            base_alias = (intent.alias or f"u{user.id}-{plan.title}").strip()
+            remark = await _generate_unique_alias(session, user.id, base_alias)
             created_service = await create_service_after_payment(session, user, plan, server, remark=remark)
 
     # notify user and update wallet if needed
