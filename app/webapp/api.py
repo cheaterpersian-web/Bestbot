@@ -146,6 +146,7 @@ async def get_user_services(user_data: dict = Depends(verify_telegram_auth)):
             # Fetch live usage from panel when possible
             used_gb = float(service.traffic_used_gb or 0)
             total_gb = float(service.traffic_limit_gb or 0)
+            panel_seen = True
             try:
                 server = (await session.execute(select(Server).where(Server.id == service.server_id))).scalar_one_or_none()
                 if server:
@@ -161,18 +162,24 @@ async def get_user_services(user_data: dict = Depends(verify_telegram_auth)):
                     query_key = service.remark or service.uuid
                     usage = await client.get_usage(query_key)
                     if isinstance(usage, dict):
+                        # If panel returns empty/zero AND DB has no link, consider panel_missing
                         used_from_panel = usage.get("used_gb")
                         total_from_panel = usage.get("total_gb")
                         if used_from_panel is not None:
                             used_gb = float(used_from_panel)
-                        # Only override total if panel provides a meaningful (>0) value; otherwise keep DB/plan
                         try:
                             if total_from_panel is not None and float(total_from_panel) > 0:
                                 total_gb = float(total_from_panel)
                         except Exception:
                             pass
+                    else:
+                        panel_seen = False
             except Exception:
-                pass
+                panel_seen = False
+
+            # Hide services that do not exist on panel anymore and have no usable link
+            if not panel_seen and not service.subscription_url:
+                continue
 
             result.append({
                 "id": service.id,

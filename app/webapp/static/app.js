@@ -418,8 +418,9 @@ async function buyService() {
                 // Switch to services tab
                 switchToServicesTab();
             } else {
-                const error = await response.json();
-                showError(error.message || 'خطا در خرید سرویس');
+                let msg = 'خطا در خرید سرویس';
+                try { const error = await response.json(); msg = error.detail || error.message || msg; } catch {}
+                showError(msg);
             }
         } catch (error) {
             console.error('Error purchasing service:', error);
