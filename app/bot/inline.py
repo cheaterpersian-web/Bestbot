@@ -202,3 +202,20 @@ def broadcast_options_kb() -> InlineKeyboardMarkup:
         ]
     )
 
+
+def broadcast_presets_kb() -> InlineKeyboardMarkup:
+    """Quick presets for target segments"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👥 همه", callback_data="broadcast:preset:all"),
+                InlineKeyboardButton(text="🆕 جدیدها", callback_data="broadcast:preset:new_users"),
+                InlineKeyboardButton(text="⭐ فعال‌ها", callback_data="broadcast:preset:active_users"),
+            ],
+            [
+                InlineKeyboardButton(text="💎 VIP", callback_data="broadcast:preset:vip_users"),
+                InlineKeyboardButton(text="⚠️ ریزشی‌ها", callback_data="broadcast:preset:churned_users"),
+            ]
+        ]
+    )
+

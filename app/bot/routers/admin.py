@@ -356,7 +356,9 @@ async def bc_receive_schedule(message: Message, state: FSMContext):
             return
     await state.update_data(scheduled_at=scheduled_at)
     await state.set_state(BroadcastStates.choosing_target)
+    from bot.inline import broadcast_presets_kb
     await message.answer("گروه هدف را انتخاب کنید:", reply_markup=_broadcast_target_kb())
+    await message.answer("پریست‌های سریع:", reply_markup=broadcast_presets_kb())
 
 
 @router.callback_query(F.data.startswith("bc_target:"))
@@ -365,6 +367,56 @@ async def bc_choose_target(callback: CallbackQuery, state: FSMContext):
         await callback.answer("اجازه ندارید", show_alert=True)
         return
     target_key = callback.data.split(":")[1]
+    await state.update_data(target=target_key)
+    data = await state.get_data()
+    # Estimate recipients count
+    try:
+        async with get_db_session() as session:
+            recipients = await ScheduledMessageService._generate_recipient_list(
+                session=session,
+                target_type="all" if target_key == "all" else "segment",
+                target_users=None,
+                target_segments=None if target_key == "all" else [target_key],
+            )
+            recipients_count = len(recipients)
+    except Exception:
+        recipients_count = 0
+    await state.update_data(recipients_count=recipients_count)
+
+    # Build preview text
+    mt = data.get("message_type")
+    type_name = "متن" if mt == "text" else ("تصویر" if mt == "image" else "فوروارد")
+    target_names = {
+        "all": "همه کاربران",
+        "new_users": "کاربران جدید",
+        "active_users": "کاربران فعال",
+        "vip_users": "کاربران VIP",
+        "churned_users": "کاربران ترک کرده",
+    }
+    preview = (
+        f"پیش‌نمایش پیام همگانی:\n\n"
+        f"عنوان: {data.get('title','')}\n"
+        f"نوع: {type_name}\n"
+        f"زمان ارسال: {data.get('scheduled_at').strftime('%Y/%m/%d %H:%M')}\n"
+        f"گروه هدف: {target_names.get(target_key, target_key)}\n"
+        f"تخمینی گیرندگان: {recipients_count}\n\n"
+        f"— متن —\n{data.get('content','')}"
+    )
+    try:
+        await callback.message.edit_text(preview, reply_markup=_broadcast_confirm_kb())
+    except Exception:
+        await callback.message.answer(preview, reply_markup=_broadcast_confirm_kb())
+    await state.set_state(BroadcastStates.confirming)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("broadcast:preset:"))
+async def bc_choose_preset(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    preset = callback.data.split(":")[2]
+    target_key = "all" if preset == "all" else preset
     await state.update_data(target=target_key)
     data = await state.get_data()
     # Estimate recipients count
@@ -785,6 +837,10 @@ async def admin_bot_settings(message: Message):
         status_url = await get_val("status_url", settings.status_url or "")
         panel_mode = await get_val("default_panel_mode", settings.default_panel_mode or "")
         card_number = await get_val("card_number", "")
+        card_holder = await get_val("card_holder_name", "")
+        iban = await get_val("iban", "")
+        card_qr = await get_val("card_qr_file_id", "")
+        pay_order = await get_val("payment_methods_order", "wallet,card,stars,zarinpal")
         welcome_text = await get_val("welcome_text", "")
         rules_text = await get_val("rules_text", "")
         help_text = await get_val("help_text", "")
@@ -799,7 +855,8 @@ async def admin_bot_settings(message: Message):
         f"ریفرال: {ref_pct}% + {ref_fix}\n"
         f"کانال پشتیبانی: {support or '-'} | نام کاربری ربات: {('@'+bot_user) if bot_user else '-'}\n"
         f"وب‌اپ: {webapp_url or '-'} | وضعیت: {status_url or '-'} | پنل: {panel_mode or '-'}\n"
-        f"کارت بانکی: {card_number or '-'}\n"
+        f"کارت بانکی: {card_number or '-'} | دارنده: {card_holder or '-'} | شبا: {iban or '-'}\n"
+        f"QR کارت: {('✅' if card_qr else '❌')} | ترتیب پرداخت: {pay_order}\n"
         f"بنر فروش: {('✅' if banner else '❌')} | راهنمای رسید: {('✅' if receipt_help else '❌')} | پیام خوش‌آمد: {('✅' if welcome_text else '❌')}\n"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -809,8 +866,11 @@ async def admin_bot_settings(message: Message):
         [InlineKeyboardButton(text=("🏦 خاموش کردن کارت‌به‌کارت" if card_on else "🏦 روشن کردن کارت‌به‌کارت"), callback_data="botset:toggle_card")],
         [InlineKeyboardButton(text=("⭐ خاموش/روشن ستاره"), callback_data="botset:toggle_stars"), InlineKeyboardButton(text=("💳 زرین‌پال خاموش/روشن"), callback_data="botset:toggle_zarin")],
         [InlineKeyboardButton(text="🆔 مرچنت زرین‌پال", callback_data="botset:set_zarin_id"), InlineKeyboardButton(text="💳 شماره کارت", callback_data="botset:set_card_number")],
+        [InlineKeyboardButton(text="👤 نام دارنده کارت", callback_data="botset:set_card_holder"), InlineKeyboardButton(text="IBAN شبا", callback_data="botset:set_iban")],
+        [InlineKeyboardButton(text="🧾 QR کارت (ارسال عکس)", callback_data="botset:set_card_qr")],
         [InlineKeyboardButton(text="✏️ حداقل شارژ", callback_data="botset:set_min_topup"), InlineKeyboardButton(text="✏️ حداکثر شارژ", callback_data="botset:set_max_topup")],
         [InlineKeyboardButton(text="⏱️ سقف تعداد روزانه", callback_data="botset:set_max_daily_tx"), InlineKeyboardButton(text="💰 سقف مبلغ روزانه", callback_data="botset:set_max_daily_amt")],
+        [InlineKeyboardButton(text="↕️ ترتیب روش‌های پرداخت", callback_data="botset:set_pay_order")],
         [InlineKeyboardButton(text=("🤖 رسید خودکار"), callback_data="botset:toggle_auto_approve"), InlineKeyboardButton(text=("📞 تایید شماره"), callback_data="botset:toggle_phone_verif")],
         [InlineKeyboardButton(text=("🧪 اکانت تست"), callback_data="botset:toggle_test_accounts"), InlineKeyboardButton(text=("🧠 ضدتقلب"), callback_data="botset:toggle_fraud")],
         [InlineKeyboardButton(text="👥 درصد ریفرال", callback_data="botset:set_ref_pct"), InlineKeyboardButton(text="👥 مبلغ ثابت ریفرال", callback_data="botset:set_ref_fix")],
@@ -886,6 +946,10 @@ class BotSetStates(StatesGroup):
     waiting_status_url = State()
     waiting_panel_mode = State()
     waiting_card_number = State()
+    waiting_card_holder = State()
+    waiting_iban = State()
+    waiting_card_qr = State()
+    waiting_pay_order = State()
     waiting_welcome = State()
     waiting_rules = State()
     waiting_help = State()
@@ -1290,6 +1354,122 @@ async def botset_card_number_value(message: Message, state: FSMContext):
             session.add(BotSettings(key="card_number", value=val, data_type="string", description="card-to-card info"))
     await state.clear()
     await message.answer("✅ اطلاعات کارت بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_card_holder")
+async def botset_set_card_holder(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_card_holder)
+    await callback.message.answer("نام دارنده کارت را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_card_holder)
+async def botset_card_holder_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip()
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "card_holder_name"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="card_holder_name", value=val, data_type="string", description="card holder name"))
+    await state.clear()
+    await message.answer("✅ نام دارنده کارت بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_iban")
+async def botset_set_iban(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_iban)
+    await callback.message.answer("شماره شبا (بدون IR) را وارد کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_iban)
+async def botset_iban_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip().upper().replace("IR", "")
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "iban"))).scalar_one_or_none()
+        if row:
+            row.value = val
+        else:
+            session.add(BotSettings(key="iban", value=val, data_type="string", description="iban without IR"))
+    await state.clear()
+    await message.answer("✅ شبا بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_card_qr")
+async def botset_set_card_qr(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_card_qr)
+    await callback.message.answer("تصویر QR کارت را ارسال کنید:")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_card_qr)
+async def botset_card_qr_value(message: Message, state: FSMContext):
+    if not message.photo:
+        await message.answer("لطفاً یک تصویر ارسال کنید.")
+        return
+    file_id = message.photo[-1].file_id
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "card_qr_file_id"))).scalar_one_or_none()
+        if row:
+            row.value = file_id
+        else:
+            session.add(BotSettings(key="card_qr_file_id", value=file_id, data_type="string", description="card QR file id"))
+    await state.clear()
+    await message.answer("✅ QR کارت بروزرسانی شد.")
+
+
+@router.callback_query(F.data == "botset:set_pay_order")
+async def botset_set_pay_order(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    await state.set_state(BotSetStates.waiting_pay_order)
+    await callback.message.answer("ترتیب روش‌های پرداخت را وارد کنید (مثلاً: wallet,card,stars,zarinpal):")
+    await callback.answer()
+
+
+@router.message(BotSetStates.waiting_pay_order)
+async def botset_pay_order_value(message: Message, state: FSMContext):
+    val = (message.text or "").strip().lower().replace(" ", "")
+    allowed = {"wallet", "card", "stars", "zarinpal"}
+    parts = [p for p in val.split(",") if p]
+    if not parts or any(p not in allowed for p in parts):
+        await message.answer("لیست نامعتبر. فقط از wallet, card, stars, zarinpal استفاده کنید.")
+        return
+    # remove duplicates keep order
+    seen = set()
+    unique = []
+    for p in parts:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+    final_val = ",".join(unique)
+    async with get_db_session() as session:
+        from sqlalchemy import select
+        from models.admin import BotSettings
+        row = (await session.execute(select(BotSettings).where(BotSettings.key == "payment_methods_order"))).scalar_one_or_none()
+        if row:
+            row.value = final_val
+        else:
+            session.add(BotSettings(key="payment_methods_order", value=final_val, data_type="string", description="payment methods order"))
+    await state.clear()
+    await message.answer("✅ ترتیب روش‌های پرداخت بروزرسانی شد.")
 
 
 @router.callback_query(F.data == "botset:set_welcome")
