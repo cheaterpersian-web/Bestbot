@@ -293,6 +293,8 @@ async def purchase_service(
         
         plan_id = int(payload.get("plan_id")) if payload and payload.get("plan_id") else None
         desired_alias = (payload.get("alias") or "").strip()
+        if not desired_alias:
+            raise HTTPException(status_code=400, detail="Service name (alias) is required")
         # Get plan
         plan = (await session.execute(
             select(Plan).where(Plan.id == plan_id)
