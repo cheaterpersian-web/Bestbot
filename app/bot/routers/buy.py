@@ -10,6 +10,7 @@ from core.db import get_db_session
 from core.config import settings
 from models.catalog import Category, Plan, Server
 from models.user import TelegramUser
+from models.service import Service
 from models.billing import Transaction
 from models.orders import PurchaseIntent
 from services.purchases import create_service_after_payment
@@ -23,6 +24,30 @@ router = Router(name="buy")
 class PurchaseStates(StatesGroup):
     waiting_purchase_receipt = State()
     waiting_alias = State()
+async def _generate_unique_alias(session, user_id: int, base_alias: str) -> str:
+    """Ensure alias is unique for this user by appending -NN if needed."""
+    alias = base_alias
+    from sqlalchemy import select
+    exists = (await session.execute(
+        select(Service.id).where(Service.user_id == user_id, Service.remark == alias)
+    )).first() is not None
+    if not exists:
+        return alias
+    import random
+    tried = set()
+    for _ in range(50):
+        n = random.randint(10, 99)
+        if n in tried:
+            continue
+        tried.add(n)
+        candidate = f"{base_alias}-{n}"
+        exists = (await session.execute(
+            select(Service.id).where(Service.user_id == user_id, Service.remark == candidate)
+        )).first() is not None
+        if not exists:
+            return candidate
+    return f"{base_alias}-99"
+
 
 
 def _to_int_money(v) -> int:
@@ -138,14 +163,10 @@ async def pay_with_wallet(callback: CallbackQuery, state: FSMContext):
             )
             session.add(tx)
 
-            # build alias/remark
+            # build alias/remark and ensure uniqueness
             data = await state.get_data()
-            alias = (data.get("alias") or f"u{me.id}-{plan.title}").strip()
-            # ensure uniqueness per user
-            try:
-                exists = await session.execute(select(TelegramUser.id))
-            except Exception:
-                pass
+            base_alias = (data.get("alias") or f"u{me.id}-{plan.title}").strip()
+            alias = await _generate_unique_alias(session, me.id, base_alias)
             service = await create_service_after_payment(session, me, plan, server, remark=alias)
             # commit before sending files
         else:
@@ -223,7 +244,9 @@ async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
             )
         # Persist intent with alias for later creation
         data = await state.get_data()
-        alias = (data.get("alias") or f"u{me.id}-{plan.title}").strip()
+        base_alias = (data.get("alias") or f"u{me.id}-{plan.title}").strip()
+        # don't need uniqueness here yet; on approval we'll enforce before creation
+        alias = base_alias
         intent = PurchaseIntent(
             user_id=me.id,
             plan_id=plan.id,
