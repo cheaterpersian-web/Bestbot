@@ -16,7 +16,8 @@ from models.orders import PurchaseIntent
 from services.purchases import create_service_after_payment
 from services.qrcode_gen import generate_qr_with_template
 from bot.inline import admin_review_tx_kb
-from services.bot_settings import get_bool
+from services.join_guard import is_join_required_and_missing
+from services.join_guard import build_join_keyboard
 
 
 router = Router(name="buy")
@@ -71,6 +72,12 @@ async def buy_entry(message: Message):
         if not sales_on:
             await message.answer("فروش در حال حاضر غیرفعال است.")
             return
+        # Gate: join channel
+        missing, channel = await is_join_required_and_missing(message.bot, session, message.from_user.id)
+        if missing:
+            from services.join_guard import build_join_keyboard
+            await message.answer("برای خرید، ابتدا عضو کانال شوید و سپس دکمه بررسی را بزنید.", reply_markup=build_join_keyboard(channel))
+            return
         cats = (
             await session.execute(
                 select(Category).where(Category.is_active == True).order_by(Category.sort_order)
@@ -92,6 +99,12 @@ async def choose_category(callback: CallbackQuery):
         sales_on = await get_bool(session, "sales_enabled", True)
         if not sales_on:
             await callback.message.answer("فروش در حال حاضر غیرفعال است.")
+            await callback.answer()
+            return
+        missing, channel = await is_join_required_and_missing(callback.message.bot, session, callback.from_user.id)
+        if missing:
+            from services.join_guard import build_join_keyboard
+            await callback.message.answer("برای ادامه ابتدا عضو کانال شوید.", reply_markup=build_join_keyboard(channel))
             await callback.answer()
             return
         plans = (
@@ -116,6 +129,12 @@ async def show_plan(callback: CallbackQuery, state: FSMContext):
         plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
         if not plan:
             await callback.message.answer("پلن یافت نشد.")
+            await callback.answer()
+            return
+        missing, channel = await is_join_required_and_missing(callback.message.bot, session, callback.from_user.id)
+        if missing:
+            from services.join_guard import build_join_keyboard
+            await callback.message.answer("برای ادامه ابتدا عضو کانال شوید.", reply_markup=build_join_keyboard(channel))
             await callback.answer()
             return
         server = (await session.execute(select(Server).where(Server.id == plan.server_id))).scalar_one_or_none()
@@ -161,6 +180,12 @@ async def pay_with_wallet(callback: CallbackQuery, state: FSMContext):
         wallet_on = await get_bool(session, "enable_wallet_payment", True)
         if not wallet_on:
             await callback.message.answer("پرداخت با کیف پول غیرفعال است.")
+            await callback.answer()
+            return
+        missing, channel = await is_join_required_and_missing(callback.message.bot, session, callback.from_user.id)
+        if missing:
+            from services.join_guard import build_join_keyboard
+            await callback.message.answer("برای پرداخت، ابتدا عضو کانال شوید.", reply_markup=build_join_keyboard(channel))
             await callback.answer()
             return
         plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one()
@@ -249,6 +274,11 @@ async def start_receipt_flow(callback: CallbackQuery, state: FSMContext):
         card_on = await get_bool(session, "enable_card_to_card", True)
         if not card_on:
             await callback.message.answer("پرداخت کارت‌به‌کارت موقتاً غیرفعال است.")
+            return
+        missing, channel = await is_join_required_and_missing(callback.message.bot, session, callback.from_user.id)
+        if missing:
+            from services.join_guard import build_join_keyboard
+            await callback.message.answer("برای پرداخت، ابتدا عضو کانال شوید.", reply_markup=build_join_keyboard(channel))
             return
         plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one()
         server = (await session.execute(select(Server).where(Server.id == plan.server_id))).scalar_one()
@@ -353,4 +383,15 @@ async def receive_purchase_receipt(message: Message, state: FSMContext):
                 text=f"رسید جدید خرید\nTX#{tx.id} | مبلغ: {int(intent.amount_due_receipt):,} | کاربر: {intent.user_id}",
                 reply_markup=admin_review_tx_kb(tx.id),
             )
+
+
+@router.callback_query(F.data == "join:check")
+async def recheck_join(callback: CallbackQuery):
+    async with get_db_session() as session:
+        missing, channel = await is_join_required_and_missing(callback.message.bot, session, callback.from_user.id)
+    if missing:
+        await callback.answer("هنوز عضو نیستید.", show_alert=True)
+    else:
+        await callback.answer("عضویت تایید شد. ادامه دهید.", show_alert=True)
+        await callback.message.answer("ادامه خرید را انجام دهید.")
 
