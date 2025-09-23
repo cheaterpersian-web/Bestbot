@@ -264,7 +264,7 @@ class SanaeiPanelClient(PanelClient):
             )
             inbound_detail = await self._get_inbound_detail(client, inbound.get("id")) if inbound.get("id") is not None else {}
             link = self._build_link_from_inbound(user_uuid, request.remark, inbound_detail or inbound)
-            return CreateServiceResult(uuid=user_uuid, subscription_url=link)
+            return CreateServiceResult(uuid=user_uuid, subscription_url=link, remark_used=(request.remark or user_uuid))
 
     async def renew_service(self, uuid: str, add_days: int) -> None:
         identifier = uuid

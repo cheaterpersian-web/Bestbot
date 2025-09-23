@@ -44,11 +44,13 @@ async def create_service_after_payment(session: AsyncSession, user: TelegramUser
     if plan.duration_days:
         expires_at = datetime.utcnow() + timedelta(days=int(plan.duration_days))
 
+    # Persist remark used (may be same as requested)
+    final_remark = getattr(result, "remark_used", None) or remark
     service = Service(
         user_id=user.id,
         server_id=server.id,
         plan_id=plan.id,
-        remark=remark,
+        remark=final_remark,
         uuid=result.uuid,
         subscription_url=result.subscription_url,
         expires_at=expires_at,
