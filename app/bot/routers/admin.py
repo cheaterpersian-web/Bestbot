@@ -623,21 +623,24 @@ async def cb_approve_tx(callback: CallbackQuery):
             await callback.answer("خطا در تایید تراکنش", show_alert=True)
             return
 
-        created_service = None
-        user = None
-        if tx.type == "purchase":
-            intent = (
-                await session.execute(select(PurchaseIntent).where(PurchaseIntent.receipt_transaction_id == tx.id))
-            ).scalar_one_or_none()
-            if intent:
-                plan = (await session.execute(select(Plan).where(Plan.id == intent.plan_id))).scalar_one()
-                server = (await session.execute(select(Server).where(Server.id == intent.server_id))).scalar_one()
-                user = (await session.execute(select(TelegramUser).where(TelegramUser.id == intent.user_id))).scalar_one()
-                intent.status = "paid"
-                created_service = await create_service_after_payment(session, user, plan, server, remark=f"u{user.id}-{plan.title}")
+    created_service = None
+    user = None
+    # For receipt-based purchases, tx.type is usually 'purchase_receipt'
+    if tx.type in {"purchase", "purchase_receipt"}:
+        intent = (
+            await session.execute(select(PurchaseIntent).where(PurchaseIntent.receipt_transaction_id == tx.id))
+        ).scalar_one_or_none()
+        if intent:
+            plan = (await session.execute(select(Plan).where(Plan.id == intent.plan_id))).scalar_one()
+            server = (await session.execute(select(Server).where(Server.id == intent.server_id))).scalar_one()
+            user = (await session.execute(select(TelegramUser).where(TelegramUser.id == intent.user_id))).scalar_one()
+            intent.status = "paid"
+            # Prefer alias stored on intent if present
+            remark = intent.alias or f"u{user.id}-{plan.title}"
+            created_service = await create_service_after_payment(session, user, plan, server, remark=remark)
 
     # notify user and update wallet if needed
-    if tx.type == "purchase" and created_service and user:
+    if tx.type in {"purchase", "purchase_receipt"} and created_service and user:
         qr_bytes = generate_qr_with_template(created_service.subscription_url)
         await callback.message.bot.send_message(chat_id=user.telegram_user_id, text="✅ خرید شما تایید شد. لینک اتصال:")
         await callback.message.bot.send_message(chat_id=user.telegram_user_id, text=created_service.subscription_url)
