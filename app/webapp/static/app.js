@@ -201,9 +201,9 @@ function displayServices() {
             <div class="usage-legend"><span>${used} از ${total} گیگابایت</span><span>${percent}%</span></div>
 
             <div class="actions-row">
-                <button title="جزئیات" class="btn btn-light btn-sm" onclick="showServiceDetails(${service.id})"><i data-lucide="eye"></i></button>
-                <button title="کپی کانفیگ" class="btn btn-light btn-sm" onclick="quickCopy(${service.id})"><i data-lucide="copy"></i></button>
-                <button title="تمدید سریع" class="btn btn-light btn-sm" onclick="quickRenew(${service.id})"><i data-lucide="rotate-ccw"></i></button>
+                <button title="جزئیات" class="btn btn-light btn-sm" onclick="event.stopPropagation(); showServiceDetails(${service.id})"><i data-lucide="eye"></i></button>
+                <button title="کپی کانفیگ" class="btn btn-light btn-sm" onclick="event.stopPropagation(); quickCopy(${service.id})"><i data-lucide="copy"></i></button>
+                <button title="تمدید سریع" class="btn btn-light btn-sm" onclick="event.stopPropagation(); quickRenew(${service.id})"><i data-lucide="rotate-ccw"></i></button>
             </div>
         `;
         servicesList.appendChild(card);
