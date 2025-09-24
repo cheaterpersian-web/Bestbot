@@ -968,7 +968,18 @@ async def botset_toggle_sales(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="sales_enabled", value=newv, data_type="bool", description="enable/disable sales"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        # Try edit in place to avoid re-triggering access checks
+        from aiogram.types import InlineKeyboardMarkup
+        # rebuild UI
+        from sqlalchemy import select
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:toggle_join")
@@ -987,7 +998,14 @@ async def botset_toggle_join(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="join_channel_required", value=newv, data_type="bool", description="require join channel"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 class BotSetStates(StatesGroup):
@@ -1097,7 +1115,14 @@ async def botset_toggle_wallet(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="enable_wallet_payment", value=newv, data_type="bool", description="enable/disable wallet payments"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:toggle_card")
@@ -1116,7 +1141,14 @@ async def botset_toggle_card(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="enable_card_to_card", value=newv, data_type="bool", description="enable/disable card-to-card"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:toggle_auto_approve")
@@ -1135,7 +1167,14 @@ async def botset_toggle_auto_approve(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="auto_approve_receipts", value=newv, data_type="bool", description="auto approve receipts"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:toggle_phone_verif")
@@ -1154,7 +1193,14 @@ async def botset_toggle_phone_verif(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="require_phone_verification", value=newv, data_type="bool", description="require phone verification"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:toggle_test_accounts")
@@ -1173,7 +1219,14 @@ async def botset_toggle_test_accounts(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="enable_test_accounts", value=newv, data_type="bool", description="enable test accounts"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:toggle_fraud")
@@ -1192,7 +1245,14 @@ async def botset_toggle_fraud(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="enable_fraud_detection", value=newv, data_type="bool", description="enable fraud detection"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:set_max_daily_tx")
@@ -1271,7 +1331,14 @@ async def botset_toggle_stars(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="enable_stars", value=newv, data_type="bool", description="enable telegram stars"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:toggle_zarin")
@@ -1290,7 +1357,14 @@ async def botset_toggle_zarin(callback: CallbackQuery):
         else:
             session.add(BotSettings(key="enable_zarinpal", value=newv, data_type="bool", description="enable zarinpal"))
     await callback.answer("به‌روزرسانی شد")
-    await admin_bot_settings(callback.message)
+    try:
+        text, kb = await _build_bot_settings_ui()
+        try:
+            await callback.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb)
+    except Exception:
+        await admin_bot_settings(callback.message)
 
 
 @router.callback_query(F.data == "botset:set_zarin_id")
