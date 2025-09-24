@@ -89,8 +89,15 @@ async def buy_entry(message: Message):
             return
         items = [(c.id, c.title) for c in cats]
         await message.answer("یک دسته‌بندی را انتخاب کنید:", reply_markup=categories_kb(items))
-    except Exception:
-        await message.answer("خطا در شروع خرید. لطفاً دوباره تلاش کنید.")
+    except Exception as e:
+        await message.answer("خطا در شروع خرید. لطفاً چند لحظه بعد دوباره تلاش کنید.")
+        # notify admins for diagnostics
+        from core.config import settings as _settings
+        for admin_id in _settings.admin_ids:
+            try:
+                await message.bot.send_message(chat_id=admin_id, text=f"[buy_entry] exception: {type(e).__name__} - {e}")
+            except Exception:
+                pass
 
 
 @router.callback_query(F.data.startswith("buy:cat:"))
