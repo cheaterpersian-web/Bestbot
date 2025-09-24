@@ -18,6 +18,7 @@ from services.qrcode_gen import generate_qr_with_template
 from bot.inline import admin_review_tx_kb
 from services.join_guard import is_join_required_and_missing
 from services.join_guard import build_join_keyboard
+from services.bot_settings import get_bool
 
 
 router = Router(name="buy")
