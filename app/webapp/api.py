@@ -15,6 +15,7 @@ from models.service import Service
 from models.catalog import Server, Category, Plan
 from models.billing import Transaction
 from services.purchases import create_service_after_payment
+from services.panels.factory import get_panel_client_for_server
 
 
 router = APIRouter(prefix="/api", tags=["webapp"])
@@ -142,14 +143,52 @@ async def get_user_services(user_data: dict = Depends(verify_telegram_auth)):
         
         result = []
         for service in services:
+            # Fetch live usage from panel when possible
+            used_gb = float(service.traffic_used_gb or 0)
+            total_gb = float(service.traffic_limit_gb or 0)
+            panel_seen = True
+            try:
+                server = (await session.execute(select(Server).where(Server.id == service.server_id))).scalar_one_or_none()
+                if server:
+                    client = get_panel_client_for_server(
+                        base_url=server.api_base_url,
+                        panel_type=server.panel_type,
+                        auth_mode=getattr(server, "auth_mode", "apikey"),
+                        api_key=server.api_key or "",
+                        username=getattr(server, "auth_username", None),
+                        password=getattr(server, "auth_password", None),
+                    )
+                    # Prefer querying by email/remark when present, otherwise by uuid
+                    query_key = service.remark or service.uuid
+                    usage = await client.get_usage(query_key)
+                    if isinstance(usage, dict):
+                        # If panel returns empty/zero AND DB has no link, consider panel_missing
+                        used_from_panel = usage.get("used_gb")
+                        total_from_panel = usage.get("total_gb")
+                        if used_from_panel is not None:
+                            used_gb = float(used_from_panel)
+                        try:
+                            if total_from_panel is not None and float(total_from_panel) > 0:
+                                total_gb = float(total_from_panel)
+                        except Exception:
+                            pass
+                    else:
+                        panel_seen = False
+            except Exception:
+                panel_seen = False
+
+            # Hide services that do not exist on panel anymore and have no usable link
+            if not panel_seen and not service.subscription_url:
+                continue
+
             result.append({
                 "id": service.id,
                 "remark": service.remark,
                 "is_active": service.is_active,
                 "purchased_at": service.purchased_at.isoformat() if service.purchased_at else None,
                 "expires_at": service.expires_at.isoformat() if service.expires_at else None,
-                "traffic_gb": float(service.traffic_limit_gb or 0),
-                "used_traffic_gb": float(service.traffic_used_gb or 0),
+                "traffic_gb": total_gb,
+                "used_traffic_gb": used_gb,
                 "config_link": service.subscription_url,
                 "qr_code": None
             })
@@ -183,18 +222,31 @@ async def get_servers(user_data: dict = Depends(verify_telegram_auth)):
 async def get_server_categories(server_id: int, user_data: dict = Depends(verify_telegram_auth)):
     """Get categories for a specific server"""
     async with get_db_session() as session:
-        from sqlalchemy import select, distinct
+        from sqlalchemy import select
 
-        # Category does not have server_id; derive categories via plans mapped to this server
-        rows = await session.execute(
-            select(distinct(Category.id), Category.title, Category.description, Category.icon, Category.color)
+        # Get distinct category ids that have plans on this server
+        cat_ids_subq = (
+            select(Category.id)
             .join(Plan, Plan.category_id == Category.id)
             .where(and_(Category.is_active == True, Plan.server_id == server_id))
-            .order_by(Category.sort_order)
+            .distinct()
         )
+
+        categories = (await session.execute(
+            select(Category)
+            .where(Category.id.in_(cat_ids_subq))
+            .order_by(Category.sort_order)
+        )).scalars().all()
+
         return [
-            {"id": cid, "title": title, "description": desc, "icon": icon, "color": color}
-            for cid, title, desc, icon, color in rows.all()
+            {
+                "id": c.id,
+                "title": c.title,
+                "description": c.description,
+                "icon": getattr(c, "icon", None),
+                "color": getattr(c, "color", None),
+            }
+            for c in categories
         ]
 
 
@@ -247,6 +299,8 @@ async def purchase_service(
             raise HTTPException(status_code=404, detail="User not found")
         
         plan_id = int(payload.get("plan_id")) if payload and payload.get("plan_id") else None
+        desired_alias = (payload.get("alias") or payload.get("service_name") or payload.get("name") or "").strip()
+        # alias is optional; if empty, a default will be used
         # Get plan
         plan = (await session.execute(
             select(Plan).where(Plan.id == plan_id)
@@ -268,12 +322,38 @@ async def purchase_service(
             raise HTTPException(status_code=404, detail="Server not found")
 
         # Create service via panel
+        # Build a unique remark/alias: prefer user input, fallback to default; if duplicate, append -NN
+        base_alias = desired_alias if desired_alias else f"u{user.id}-{plan.title}"
+        remark = base_alias
+        try:
+            from sqlalchemy import select
+            exists = (await session.execute(
+                select(Service.id).where(Service.user_id == user.id, Service.remark == remark)
+            )).first() is not None
+            if exists:
+                import random
+                tried = set()
+                for _ in range(50):
+                    n = random.randint(10, 99)
+                    if n in tried:
+                        continue
+                    tried.add(n)
+                    candidate = f"{base_alias}-{n}"
+                    exists = (await session.execute(
+                        select(Service.id).where(Service.user_id == user.id, Service.remark == candidate)
+                    )).first() is not None
+                    if not exists:
+                        remark = candidate
+                        break
+        except Exception:
+            pass
+
         service = await create_service_after_payment(
             session=session,
             user=user,
             plan=plan,
             server=server,
-            remark=f"Service from plan {plan.title}"
+            remark=remark
         )
         await session.flush()
 
@@ -415,15 +495,39 @@ async def renew_service(
         # Deduct from wallet
         user.wallet_balance = float(user.wallet_balance or 0) - float(plan.price_irr or 0)
 
-        # Extend service
-        if plan.duration_days:
+        # Extend service (DB)
+        add_days = int(plan.duration_days or 0)
+        add_gb = int(plan.traffic_gb or 0)
+        if add_days:
             if service.expires_at:
-                service.expires_at += timedelta(days=int(plan.duration_days))
+                service.expires_at += timedelta(days=add_days)
             else:
-                service.expires_at = datetime.utcnow() + timedelta(days=int(plan.duration_days))
-        if plan.traffic_gb:
+                service.expires_at = datetime.utcnow() + timedelta(days=add_days)
+        if add_gb:
             current = float(service.traffic_limit_gb or 0)
-            service.traffic_limit_gb = current + float(plan.traffic_gb)
+            service.traffic_limit_gb = current + float(add_gb)
+
+        # Propagate to panel
+        try:
+            server = (await session.execute(select(Server).where(Server.id == service.server_id))).scalar_one_or_none()
+            if server:
+                client = get_panel_client_for_server(
+                    base_url=server.api_base_url,
+                    panel_type=server.panel_type,
+                    auth_mode=getattr(server, "auth_mode", "apikey"),
+                    api_key=server.api_key or "",
+                    username=getattr(server, "auth_username", None),
+                    password=getattr(server, "auth_password", None),
+                )
+                # Update expiry
+                if add_days:
+                    await client.renew_service(service.remark or service.uuid, add_days=add_days)
+                # Update traffic
+                if add_gb:
+                    await client.add_traffic(service.remark or service.uuid, add_gb=add_gb)
+        except Exception:
+            # Ignore panel errors to not block DB renewal; UI will fetch live usage later
+            pass
 
         # Create transaction
         transaction = Transaction(

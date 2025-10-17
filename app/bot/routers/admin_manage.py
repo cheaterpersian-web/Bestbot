@@ -10,9 +10,21 @@ from models.catalog import Server, Category, Plan
 from models.admin import Button
 from bot.inline import admin_manage_servers_kb
 from models.user import TelegramUser
+from services.panels.sanaei import SanaeiPanelClient
+from services.panels.base import PanelServerConfig
+import httpx
 
 
 router = Router(name="admin_manage")
+
+
+# Utilities: normalize Persian/Arabic digits to ASCII and parse integers safely
+_DIGIT_TRANSLATION = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def _parse_int(text: str) -> int:
+    t = (text or "").strip().translate(_DIGIT_TRANSLATION)
+    return int(t)
 
 
 async def _is_admin(telegram_id: int) -> bool:
@@ -693,6 +705,7 @@ class AddPlanStates(StatesGroup):
     waiting_price = State()
     waiting_duration = State()
     waiting_traffic = State()
+    waiting_inbound = State()
 
 
 @router.message(Command("add_plan"))
@@ -704,16 +717,46 @@ async def add_plan_start(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_category_id)
 
 
-@router.message(AddPlanStates.waiting_category_id, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_category_id)
 async def add_plan_cat(message: Message, state: FSMContext):
-    await state.update_data(category_id=int(message.text))
+    try:
+        await state.update_data(category_id=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
+    # Validate category exists
+    try:
+        async with get_db_session() as session:
+            from sqlalchemy import select
+            cid = (await session.execute(select(Category.id).where(Category.id == (await state.get_data()).get("category_id")))).scalar_one_or_none()
+        if not cid:
+            await message.answer("❌ دسته یافت نشد. ابتدا دسته بسازید یا شناسه صحیح وارد کنید.\n/list_categories")
+            return
+    except Exception:
+        await message.answer("❌ خطا در بررسی دسته. دوباره تلاش کنید.")
+        return
     await message.answer("ID سرور را وارد کنید (\n/list_servers برای مشاهده)")
     await state.set_state(AddPlanStates.waiting_server_id)
 
 
-@router.message(AddPlanStates.waiting_server_id, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_server_id)
 async def add_plan_server(message: Message, state: FSMContext):
-    await state.update_data(server_id=int(message.text))
+    try:
+        await state.update_data(server_id=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
+    # Validate server exists
+    try:
+        async with get_db_session() as session:
+            from sqlalchemy import select
+            sid = (await session.execute(select(Server.id).where(Server.id == (await state.get_data()).get("server_id")))).scalar_one_or_none()
+        if not sid:
+            await message.answer("❌ سرور یافت نشد. ابتدا سرور بسازید یا شناسه صحیح وارد کنید.\n/list_servers")
+            return
+    except Exception:
+        await message.answer("❌ خطا در بررسی سرور. دوباره تلاش کنید.")
+        return
     await message.answer("عنوان پلن را وارد کنید")
     await state.set_state(AddPlanStates.waiting_title)
 
@@ -725,37 +768,128 @@ async def add_plan_title(message: Message, state: FSMContext):
     await state.set_state(AddPlanStates.waiting_price)
 
 
-@router.message(AddPlanStates.waiting_price, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_price)
 async def add_plan_price(message: Message, state: FSMContext):
-    await state.update_data(price_irr=int(message.text))
+    try:
+        await state.update_data(price_irr=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
     await message.answer("مدت (روز) را وارد کنید یا 0 اگر حجمی است")
     await state.set_state(AddPlanStates.waiting_duration)
 
 
-@router.message(AddPlanStates.waiting_duration, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_duration)
 async def add_plan_duration(message: Message, state: FSMContext):
-    await state.update_data(duration_days=int(message.text))
+    try:
+        await state.update_data(duration_days=_parse_int(message.text))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
     await message.answer("حجم (گیگ) را وارد کنید یا 0 اگر زمانی است")
     await state.set_state(AddPlanStates.waiting_traffic)
 
 
-@router.message(AddPlanStates.waiting_traffic, F.text.regexp(r"^\d+$"))
+@router.message(AddPlanStates.waiting_traffic)
 async def add_plan_traffic(message: Message, state: FSMContext):
     data = await state.get_data()
-    traffic = int(message.text)
+    try:
+        # Accept inputs like "10", "۱۰", "10 گیگ", "10GB", with spaces
+        cleaned = (message.text or "").strip().translate(_DIGIT_TRANSLATION)
+        # remove non-digits at ends
+        import re
+        m = re.search(r"(\d+)", cleaned)
+        if not m:
+            raise ValueError
+        traffic = int(m.group(1))
+    except Exception:
+        await message.answer("عدد نامعتبر.")
+        return
+    # store traffic in state
+    await state.update_data(traffic_gb=(None if traffic == 0 else traffic))
+
+    # Check server panel type for inbound selection
     async with get_db_session() as session:
-        p = Plan(
-            category_id=data["category_id"],
-            server_id=data["server_id"],
-            title=data["title"],
-            price_irr=data["price_irr"],
-            duration_days=(None if data["duration_days"] == 0 else data["duration_days"]),
-            traffic_gb=(None if traffic == 0 else traffic),
-            is_active=True,
-        )
-        session.add(p)
+        from sqlalchemy import select
+        srv = (await session.execute(select(Server).where(Server.id == data["server_id"]))).scalar_one_or_none()
+    if not srv:
+        await message.answer("❌ سرور یافت نشد. ابتدا سرور صحیح را انتخاب کنید.")
+        return
+
+    if (srv.panel_type or "").lower() in {"3xui", "sanaei"}:
+        # fetch inbounds and prompt selection
+        try:
+            cfg = PanelServerConfig(
+                base_url=srv.api_base_url,
+                api_key=srv.api_key or "",
+                panel_type=(srv.panel_type or "sanaei").lower(),
+                auth_mode=getattr(srv, "auth_mode", "apikey") or "apikey",
+                username=getattr(srv, "auth_username", None),
+                password=getattr(srv, "auth_password", None),
+            )
+            pc = SanaeiPanelClient(cfg)
+            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as hc:
+                await pc._login_get_cookie(hc)
+                inbounds = await pc._list_inbounds(hc)
+        except Exception:
+            inbounds = []
+
+        if not inbounds:
+            # proceed without inbound
+            await _finalize_plan_creation(message, state, inbound_id=None)
+            return
+
+        # Build inline keyboard for inbound selection
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        rows = []
+        for ib in inbounds[:20]:
+            ib_id = ib.get("id")
+            title = ib.get("remark") or ib.get("tag") or str(ib_id)
+            rows.append([InlineKeyboardButton(text=f"#{ib_id} {title}", callback_data=f"adm:select_inbound:{ib_id}")])
+        rows.append([InlineKeyboardButton(text="⏭️ بدون انتخاب (پیش‌فرض)", callback_data="adm:select_inbound:skip")])
+        kb = InlineKeyboardMarkup(inline_keyboard=rows)
+        await state.set_state(AddPlanStates.waiting_inbound)
+        await message.answer("یک اینباند را انتخاب کنید:", reply_markup=kb)
+        return
+
+    # Non-3xui panels: finalize directly
+    await _finalize_plan_creation(message, state, inbound_id=None)
+
+
+async def _finalize_plan_creation(message: Message, state: FSMContext, inbound_id: int | None) -> None:
+    data = await state.get_data()
+    try:
+        async with get_db_session() as session:
+            p = Plan(
+                category_id=data["category_id"],
+                server_id=data["server_id"],
+                title=data["title"],
+                price_irr=data["price_irr"],
+                duration_days=(None if data["duration_days"] == 0 else data["duration_days"]),
+                traffic_gb=data.get("traffic_gb"),
+                is_active=True,
+                inbound_id=inbound_id,
+            )
+            session.add(p)
+    except Exception:
+        await message.answer("❌ ثبت پلن ناموفق بود. لطفاً از صحت داده‌ها اطمینان حاصل کنید و دوباره تلاش کنید.")
+        return
     await state.clear()
-    await message.answer("پلن ثبت شد.")
+    await message.answer("✅ پلن ثبت شد.")
+
+
+@router.callback_query(AddPlanStates.waiting_inbound, F.data.startswith("adm:select_inbound:"))
+async def cb_select_inbound(callback: CallbackQuery, state: FSMContext):
+    if not await _is_admin(callback.from_user.id):
+        await callback.answer("اجازه ندارید", show_alert=True)
+        return
+    token = callback.data.split(":")[-1]
+    inbound_id = None if token == "skip" else int(token)
+    await _finalize_plan_creation(callback.message, state, inbound_id=inbound_id)
+    try:
+        await callback.answer("ثبت شد")
+    except Exception:
+        pass
 
 
 @router.message(Command("list_plans"))

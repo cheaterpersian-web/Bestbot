@@ -10,6 +10,7 @@ let plans = [];
 document.addEventListener('DOMContentLoaded', function() {
     tg.ready();
     tg.expand();
+    try { tg.MainButton.hide && tg.MainButton.hide(); } catch {}
     
     // Respect custom dark theme; only apply Telegram theme if provided and high-contrast
     if (tg.themeParams && tg.themeParams.bg_color) {
@@ -175,51 +176,40 @@ function displayServices() {
     }
     
     services.forEach(service => {
-        const serviceCard = document.createElement('div');
-        serviceCard.className = 'service-card';
-        serviceCard.style.cursor = 'pointer';
-        
-        const statusClass = service.is_active ? 'status-active' : 'status-expired';
-        const statusText = service.is_active ? 'فعال' : 'منقضی شده';
-
         const used = Number(service.used_traffic_gb || 0);
         const total = Number(service.traffic_gb || 0);
         const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
         const exp = service.expires_at ? new Date(service.expires_at).toLocaleDateString('fa-IR') : '-';
-        serviceCard.innerHTML = `
-            <div class="row align-items-center">
-                <div class="col-8">
-                    <h6 class="mb-1"><i data-lucide="server"></i> ${service.remark || 'سرویس VPN'}</h6>
-                    <div class="mb-1" style="color: var(--color-muted)">
-                        <small><i data-lucide="calendar"></i> انقضا: ${exp}</small>
-                    </div>
-                    <div class="progress" style="height: 8px; background: rgba(255,255,255,0.08);">
-                        <div class="progress-bar" role="progressbar" style="width: ${percent}%; background: var(--color-primary);" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                    <div class="d-flex justify-content-between mt-1" style="color: var(--color-muted)">
-                        <small>${used} از ${total} گیگابایت</small>
-                        <small>${percent}%</small>
-                    </div>
+        const statusClass = service.is_active ? 'chip chip-success' : 'chip chip-danger';
+        const statusDot = service.is_active ? '#22c55e' : '#ef4444';
+
+        const card = document.createElement('div');
+        card.className = 'service-card';
+        card.innerHTML = `
+            <div class="service-header">
+                <div class="service-icon"><i data-lucide="server"></i></div>
+                <div>
+                    <div class="service-title">${service.remark || 'سرویس VPN'}</div>
+                    <div class="service-meta"><i data-lucide="calendar"></i> انقضا: ${exp}</div>
                 </div>
-                <div class="col-4 text-end">
-                    <span class="status-badge ${statusClass}">${statusText}</span>
-                    <div class="mt-2 d-flex gap-1 justify-content-end">
-                        <button title="جزئیات" class="btn btn-light btn-sm" onclick="showServiceDetails(${service.id})">
-                            <i data-lucide="eye"></i>
-                        </button>
-                        <button title="کپی کانفیگ" class="btn btn-light btn-sm" onclick="quickCopy(${service.id})">
-                            <i data-lucide="copy"></i>
-                        </button>
-                        <button title="تمدید سریع" class="btn btn-light btn-sm" onclick="quickRenew(${service.id})">
-                            <i data-lucide="rotate-ccw"></i>
-                        </button>
-                    </div>
+                <div style="margin-inline-start:auto" class="${statusClass}">
+                    <span class="dot" style="background:${statusDot}"></span>
+                    ${service.is_active ? 'فعال' : 'منقضی'}
                 </div>
             </div>
+
+            <div class="usage-bar"><div class="usage-fill" style="width:${percent}%"></div></div>
+            <div class="usage-legend"><span>${used} از ${total} گیگابایت</span><span>${percent}%</span></div>
+
+            <div class="actions-row">
+                <button title="دیدن اطلاعات" class="btn btn-light btn-sm" onclick="event.stopPropagation(); showServiceDetails(${service.id})">
+                    <i data-lucide="eye"></i>
+                    <span style="margin-inline-start:6px">دیدن اطلاعات</span>
+                </button>
+            </div>
         `;
-        
-        servicesList.appendChild(serviceCard);
-        serviceCard.addEventListener('click', () => showServiceDetails(service.id));
+        servicesList.appendChild(card);
+        card.addEventListener('click', () => showServiceDetails(service.id));
     });
     try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch {}
 }
@@ -379,13 +369,23 @@ async function buyService() {
     
     const plan = plans.find(p => p.id == planId);
     if (!plan) return;
+    const aliasInput = document.getElementById('alias-input');
+    const alias = (aliasInput?.value || '').trim();
+    if (!alias) {
+        showError('لطفاً نام سرویس را وارد کنید');
+        try { aliasInput.classList.add('is-invalid'); aliasInput.focus(); } catch {}
+        return;
+    } else {
+        try { aliasInput.classList.remove('is-invalid'); } catch {}
+    }
     
     // Show confirmation
-    const confirmed = confirm(`آیا می‌خواهید پلن "${plan.title}" را به قیمت ${plan.price_irr.toLocaleString('fa-IR')} تومان خریداری کنید؟`);
+    const confirmed = confirm(`آیا می‌خواهید پلن "${plan.title}" را به قیمت ${plan.price_irr.toLocaleString('fa-IR')} تومان با نام سرویس "${alias}" خریداری کنید؟`);
     
     if (confirmed) {
         try {
-            tg.MainButton.showProgress && tg.MainButton.showProgress(true);
+            const btn = document.getElementById('buy-button');
+            if (btn) btn.disabled = true;
             const response = await fetch('/api/purchase', {
                 method: 'POST',
                 headers: {
@@ -393,7 +393,8 @@ async function buyService() {
                     'Authorization': `Bearer ${tg.initData}`
                 },
                 body: JSON.stringify({
-                    plan_id: planId
+                    plan_id: planId,
+                    alias: alias || undefined
                 })
             });
             
@@ -408,34 +409,23 @@ async function buyService() {
                 // Switch to services tab
                 switchToServicesTab();
             } else {
-                const error = await response.json();
-                showError(error.message || 'خطا در خرید سرویس');
+                let msg = 'خطا در خرید سرویس';
+                try { const error = await response.json(); msg = error.detail || error.message || msg; } catch {}
+                showError(msg);
             }
         } catch (error) {
             console.error('Error purchasing service:', error);
             showError('خطا در خرید سرویس');
         } finally {
-            tg.MainButton.hideProgress && tg.MainButton.hideProgress();
+            const btn = document.getElementById('buy-button');
+            if (btn) btn.disabled = false;
         }
     }
 }
 
 function updateBuyMainButton(plan) {
-    try {
-        const selectedPlanId = document.getElementById('plan-select').value;
-        const selected = plan || plans.find(p => p.id == selectedPlanId);
-        if (selected) {
-            tg.MainButton.setText(`خرید: ${selected.title} (${selected.price_irr.toLocaleString('fa-IR')} تومان)`);
-            tg.MainButton.show();
-            tg.MainButton.onClick(async () => {
-                await buyService();
-            });
-        } else {
-            tg.MainButton.hide();
-        }
-    } catch (e) {
-        // MainButton may be unavailable in some clients
-    }
+    // Disable Telegram MainButton for this app; we use in-page button instead
+    try { tg.MainButton.hide && tg.MainButton.hide(); tg.MainButton.offClick && tg.MainButton.offClick(); } catch {}
 }
 
 function showServiceDetails(serviceId) {

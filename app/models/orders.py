@@ -17,4 +17,5 @@ class PurchaseIntent(Base):
     receipt_transaction_id: Mapped[Optional[int]] = mapped_column(ForeignKey("transaction.id"), nullable=True)
     discount_code: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     discount_amount: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
+    alias: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 

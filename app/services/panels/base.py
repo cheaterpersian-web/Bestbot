@@ -33,6 +33,7 @@ class CreateServiceRequest:
 class CreateServiceResult:
     uuid: str
     subscription_url: str
+    remark_used: Optional[str] = None
 
 
 class PanelClient(Protocol):

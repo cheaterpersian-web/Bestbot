@@ -13,6 +13,7 @@ from services.payment_processor import PaymentProcessor
 from services.fraud_detection import FraudDetectionService
 from bot.inline import admin_review_tx_kb, payment_cards_kb
 from bot.keyboards import wallet_menu_kb, main_menu_kb
+from services.bot_settings import get_int
 
 
 router = Router(name="wallet")
@@ -55,8 +56,10 @@ async def wallet_menu(message: Message, state: FSMContext):
                 text += f"• و {len(payment_cards) - 3} کارت دیگر...\n"
             text += "\n"
         
+        min_topup = await get_int(session, "min_topup_amount", settings.min_topup_amount)
+        max_topup = await get_int(session, "max_topup_amount", settings.max_topup_amount)
         text += f"برای شارژ کیف پول، مبلغ مورد نظر را ارسال کنید (تومان).\n"
-        text += f"حداقل: {settings.min_topup_amount:,} - حداکثر: {settings.max_topup_amount:,}\n\n"
+        text += f"حداقل: {min_topup:,} - حداکثر: {max_topup:,}\n\n"
         
         if recent_txs:
             text += "📊 آخرین تراکنش‌ها:\n"
@@ -70,7 +73,10 @@ async def wallet_menu(message: Message, state: FSMContext):
 @router.message(TopUpStates.waiting_for_amount, F.text.regexp(r"^\d+$"))
 async def receive_amount(message: Message, state: FSMContext):
     amount = int(message.text)
-    if amount < settings.min_topup_amount or amount > settings.max_topup_amount:
+    async with get_db_session() as session:
+        min_topup = await get_int(session, "min_topup_amount", settings.min_topup_amount)
+        max_topup = await get_int(session, "max_topup_amount", settings.max_topup_amount)
+    if amount < min_topup or amount > max_topup:
         await message.answer("مبلغ نامعتبر است. دوباره ارسال کنید.")
         return
     await state.update_data(amount=amount)
